@@ -1,13 +1,15 @@
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+:root {
+  --color-bg: 247 244 239;
+  --color-sidebar: 239 233 225;
+  --color-primary: 47 93 98;
+  --color-success: 47 111 78;
+  --color-warning: 183 121 31;
+  --color-danger: 178 59 59;
+  --color-text: 31 41 51;
 }
 
 html,
@@ -17,9 +19,13 @@ body {
 }
 
 body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  color: rgb(var(--color-text) / 1);
+  background: rgb(var(--color-bg) / 1);
+  background-image:
+    radial-gradient(circle at 12% 8%, rgb(var(--color-primary) / 0.12), transparent 35%),
+    radial-gradient(circle at 88% 12%, rgb(var(--color-warning) / 0.08), transparent 40%),
+    radial-gradient(circle at 20% 80%, rgb(var(--color-success) / 0.08), transparent 35%);
+  font-family: var(--font-sans), sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -33,10 +39,4 @@ body {
 a {
   color: inherit;
   text-decoration: none;
-}
-
-@media (prefers-color-scheme: dark) {
-  html {
-    color-scheme: dark;
-  }
 }
