@@ -19,7 +19,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={manrope.variable}>
+      <body className={manrope.variable} suppressHydrationWarning>
         {children}
       </body>
     </html>

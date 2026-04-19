@@ -31,15 +31,17 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-app-bg px-6">
-      <div className="w-full max-w-md rounded-3xl border border-black/5 bg-white/90 p-8 shadow-lg shadow-black/5">
+    <div className="relative flex min-h-screen items-center justify-center bg-app-bg px-6 py-10">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_10%,rgba(30,87,95,0.2),transparent_35%)]" />
+      <div className="relative w-full max-w-md rounded-3xl border border-black/10 bg-white/94 p-8 shadow-[0_24px_56px_rgba(0,0,0,0.12)]">
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-0.5 rounded-t-3xl bg-app-primary/70" />
         <div className="mb-6">
           <p className="text-[10px] uppercase tracking-[0.3em] text-black/40">
-            Welcome back
+            HLM
           </p>
-          <h1 className="text-2xl font-semibold text-app-text">Sign in</h1>
+          <h1 className="text-3xl font-semibold tracking-tight text-app-text">Sign in</h1>
           <p className="mt-2 text-sm text-black/50">
-            Manage hardware, maintenance, and warranty workflows.
+            Access your workspace.
           </p>
         </div>
         <form className="space-y-4" onSubmit={handleSubmit}>
@@ -48,7 +50,7 @@ export default function LoginPage() {
               Email
             </label>
             <input
-              className="w-full rounded-lg border border-black/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-app-primary/15"
+              className="app-input w-full rounded-xl px-3 py-2.5 text-sm"
               placeholder="you@company.com"
               type="email"
               value={email}
@@ -61,7 +63,7 @@ export default function LoginPage() {
               Password
             </label>
             <input
-              className="w-full rounded-lg border border-black/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-app-primary/15"
+              className="app-input w-full rounded-xl px-3 py-2.5 text-sm"
               placeholder="••••••••"
               type="password"
               value={password}
@@ -75,7 +77,7 @@ export default function LoginPage() {
             </p>
           ) : null}
           <button
-            className="w-full rounded-lg bg-app-primary px-4 py-2 text-sm font-semibold text-white disabled:opacity-70"
+            className="app-btn-primary w-full rounded-xl px-4 py-2.5 text-sm font-semibold text-white transition disabled:opacity-70"
             type="submit"
             disabled={isLoading}
           >
@@ -83,7 +85,7 @@ export default function LoginPage() {
           </button>
         </form>
         <div className="mt-5 rounded-xl border border-black/5 bg-app-primary/5 px-4 py-3 text-xs text-black/60">
-          Use a Supabase Auth user created in your project.
+          Use your account.
         </div>
       </div>
     </div>

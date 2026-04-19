@@ -145,3 +145,134 @@ This shows full CRUD and tracking in under 2 minutes.
 ---
 
 Use this guide as your talking points. If you want, I can make a shorter 1-page version or add a Q&A cheat sheet.
+
+---
+
+## 10) Important Code Blocks You Should Know (Defense Map)
+
+Use this section when panelists ask "where is that logic in your code?"
+
+### A) Supabase Connection Layer
+
+File:
+- [src/lib/supabaseClient.ts](src/lib/supabaseClient.ts)
+
+What to say:
+- This is the shared database client used by all pages.
+- It reads `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
+- It throws an error if env values are missing, so misconfiguration fails early.
+
+Why important:
+- Centralized setup means every page uses the same trusted connection.
+
+### B) Route Protection (Session Guard)
+
+File:
+- [src/components/AuthGate.tsx](src/components/AuthGate.tsx)
+
+What to say:
+- On app load, it checks Supabase session.
+- If no session, it redirects to `/login`.
+- It also listens to auth state changes (like sign out).
+
+Why important:
+- Prevents unauthenticated access to dashboard routes.
+
+### C) Role Extraction and Permission Helpers
+
+File:
+- [src/lib/roles.ts](src/lib/roles.ts)
+
+What to say:
+- Role is derived from Supabase JWT metadata (`app_metadata.role`).
+- Fallback role is `viewer` if none is defined.
+- Permission helpers keep UI conditions readable and consistent.
+
+Why important:
+- Keeps role logic reusable and avoids hardcoding conditions per page.
+
+### D) Hardware CRUD + Lifecycle History Write
+
+File:
+- [src/app/(app)/hardware/page.tsx](src/app/(app)/hardware/page.tsx)
+
+What to say:
+- `handleCreate` inserts into `hardware_assets`.
+- `handleUpdate` updates existing rows.
+- On status change, `recordLifecycleChange` writes to `lifecycle_history`.
+- Input is normalized (`asset_id` uppercase/trimmed) to reduce duplicates.
+
+Why important:
+- Demonstrates core lifecycle traceability requirement.
+
+### E) Maintenance Workflow
+
+File:
+- [src/app/(app)/maintenance/page.tsx](src/app/(app)/maintenance/page.tsx)
+
+What to say:
+- Loads asset options and maintenance logs.
+- Supports create/update/delete with role checks.
+- Supports CSV import/export for operational workflows.
+
+Why important:
+- Shows practical maintainability features used in real operations.
+
+### F) Warranty Risk Logic
+
+File:
+- [src/app/(app)/warranty/page.tsx](src/app/(app)/warranty/page.tsx)
+
+What to say:
+- Computes `Expired` and `Expiring Soon` (next 30 days).
+- This supports preventive maintenance and budgeting decisions.
+
+Why important:
+- Directly ties project output to decision-making value.
+
+### G) Database Security and Constraints
+
+File:
+- [SUPABASE_RLS.sql](SUPABASE_RLS.sql)
+
+What to say:
+- Defines tables, constraints, indexes, and RLS policies.
+- RLS enforces who can read/write/delete per role.
+- Script is idempotent, so setup can be repeated safely.
+
+Why important:
+- This is the backend security foundation of the project.
+
+---
+
+## 11) One UI, Multiple Roles (How to Explain)
+
+You currently use a single UI shell (same pages), but behavior changes by role:
+
+1. Admin
+- Full CRUD on hardware and maintenance
+- Can delete hardware
+- Can delete maintenance logs
+
+2. Viewer
+- Read-only access
+- Forms hidden/blocked in hardware and maintenance pages
+
+This is a realistic approach for dashboards because:
+- UI stays consistent and easy to maintain
+- Security still enforced at DB level via RLS
+- Users only see actions they are allowed to perform
+
+---
+
+## 12) Role Assignment Demo Query (If Asked)
+
+Use this in Supabase SQL Editor (replace values):
+
+```sql
+update auth.users
+set raw_app_meta_data = coalesce(raw_app_meta_data, '{}'::jsonb) || '{"role":"admin"}'::jsonb
+where id = 'YOUR-USER-UUID';
+```
+
+After running it, sign out and sign in to refresh JWT claims.

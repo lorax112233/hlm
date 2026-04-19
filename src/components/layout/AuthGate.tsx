@@ -31,7 +31,7 @@ export default function AuthGate({ children }: AuthGateProps) {
     };
 
     const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === "SIGNED_OUT" || event === "USER_DELETED") {
+      if (event === "SIGNED_OUT") {
         router.replace("/login");
         return;
       }

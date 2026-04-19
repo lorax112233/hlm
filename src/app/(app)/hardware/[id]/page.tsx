@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import DataTable from "@/components/DataTable";
+import DataTable from "@/components/ui/DataTable";
 import { supabase } from "@/lib/supabaseClient";
 
 type HardwareAsset = {

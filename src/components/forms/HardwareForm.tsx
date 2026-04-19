@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 type HardwareFormValues = {
   asset_id: string;
@@ -33,6 +33,13 @@ const defaultValues: HardwareFormValues = {
   assigned_to: "",
 };
 
+const buildInitialValues = (
+  initialValues?: Partial<HardwareFormValues>,
+): HardwareFormValues => ({
+  ...defaultValues,
+  ...initialValues,
+});
+
 export default function HardwareForm({
   onSubmit,
   isLoading = false,
@@ -41,11 +48,9 @@ export default function HardwareForm({
   submitLabel = "Save Hardware",
   onCancel,
 }: HardwareFormProps) {
-  const [values, setValues] = useState<HardwareFormValues>(defaultValues);
-
-  useEffect(() => {
-    setValues({ ...defaultValues, ...initialValues });
-  }, [initialValues]);
+  const [values, setValues] = useState<HardwareFormValues>(() =>
+    buildInitialValues(initialValues),
+  );
 
   const handleChange = (
     key: keyof HardwareFormValues,
@@ -62,7 +67,7 @@ export default function HardwareForm({
 
   return (
     <form
-      className="grid gap-4 rounded-2xl border border-black/5 bg-white p-6 shadow-sm md:grid-cols-2"
+      className="grid gap-4 rounded-2xl border border-black/8 bg-white/92 p-6 shadow-sm shadow-black/8 md:grid-cols-2"
       onSubmit={handleSubmit}
     >
       <div className="grid gap-2">
@@ -70,7 +75,7 @@ export default function HardwareForm({
           Asset ID
         </label>
         <input
-          className="rounded-lg border border-black/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-app-primary/15"
+          className="app-input rounded-xl px-3 py-2.5 text-sm"
           placeholder="AST-0001"
           type="text"
           value={values.asset_id}
@@ -83,7 +88,7 @@ export default function HardwareForm({
           Device Name
         </label>
         <input
-          className="rounded-lg border border-black/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-app-primary/15"
+          className="app-input rounded-xl px-3 py-2.5 text-sm"
           placeholder="Lenovo ThinkPad T14"
           type="text"
           value={values.device_name}
@@ -96,7 +101,7 @@ export default function HardwareForm({
           Device Type
         </label>
         <input
-          className="rounded-lg border border-black/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-app-primary/15"
+          className="app-input rounded-xl px-3 py-2.5 text-sm"
           placeholder="Laptop"
           type="text"
           value={values.device_type}
@@ -109,7 +114,7 @@ export default function HardwareForm({
           Assigned To
         </label>
         <input
-          className="rounded-lg border border-black/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-app-primary/15"
+          className="app-input rounded-xl px-3 py-2.5 text-sm"
           placeholder="Alex Rivera"
           type="text"
           value={values.assigned_to}
@@ -121,7 +126,7 @@ export default function HardwareForm({
           Purchase Date
         </label>
         <input
-          className="rounded-lg border border-black/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-app-primary/15"
+          className="app-input rounded-xl px-3 py-2.5 text-sm"
           type="date"
           value={values.purchase_date}
           onChange={(event) => handleChange("purchase_date", event.target.value)}
@@ -132,7 +137,7 @@ export default function HardwareForm({
           Warranty Expiry
         </label>
         <input
-          className="rounded-lg border border-black/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-app-primary/15"
+          className="app-input rounded-xl px-3 py-2.5 text-sm"
           type="date"
           value={values.warranty_expiry}
           onChange={(event) => handleChange("warranty_expiry", event.target.value)}
@@ -143,7 +148,7 @@ export default function HardwareForm({
           Lifecycle Status
         </label>
         <select
-          className="rounded-lg border border-black/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-app-primary/15"
+          className="app-input rounded-xl px-3 py-2.5 text-sm"
           value={values.lifecycle_status}
           onChange={(event) =>
             handleChange("lifecycle_status", event.target.value)
@@ -162,7 +167,7 @@ export default function HardwareForm({
           Serial Number
         </label>
         <input
-          className="rounded-lg border border-black/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-app-primary/15"
+          className="app-input rounded-xl px-3 py-2.5 text-sm"
           placeholder="SN-123456"
           type="text"
           value={values.serial_number}
@@ -178,7 +183,7 @@ export default function HardwareForm({
       ) : null}
       <div className="flex flex-wrap items-center gap-3 md:col-span-2">
         <button
-          className="rounded-lg bg-app-primary px-4 py-2 text-sm font-semibold text-white disabled:opacity-70"
+          className="app-btn-primary rounded-xl px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-70"
           type="submit"
           disabled={isLoading}
         >
@@ -186,7 +191,7 @@ export default function HardwareForm({
         </button>
         {onCancel ? (
           <button
-            className="rounded-lg border border-black/10 px-4 py-2 text-sm font-semibold text-black/60"
+            className="rounded-xl border border-black/12 bg-white px-4 py-2.5 text-sm font-semibold text-black/60"
             type="button"
             onClick={onCancel}
           >

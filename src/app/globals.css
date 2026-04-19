@@ -3,13 +3,13 @@
 @tailwind utilities;
 
 :root {
-  --color-bg: 247 244 239;
-  --color-sidebar: 239 233 225;
-  --color-primary: 47 93 98;
-  --color-success: 47 111 78;
-  --color-warning: 183 121 31;
-  --color-danger: 178 59 59;
-  --color-text: 31 41 51;
+  --color-bg: 244 242 237;
+  --color-sidebar: 235 231 223;
+  --color-primary: 30 87 95;
+  --color-success: 42 102 72;
+  --color-warning: 173 112 31;
+  --color-danger: 172 54 54;
+  --color-text: 30 38 46;
 }
 
 html,
@@ -22,9 +22,17 @@ body {
   color: rgb(var(--color-text) / 1);
   background: rgb(var(--color-bg) / 1);
   background-image:
-    radial-gradient(circle at 12% 8%, rgb(var(--color-primary) / 0.12), transparent 35%),
-    radial-gradient(circle at 88% 12%, rgb(var(--color-warning) / 0.08), transparent 40%),
-    radial-gradient(circle at 20% 80%, rgb(var(--color-success) / 0.08), transparent 35%);
+    radial-gradient(circle at 10% 0%, rgb(var(--color-primary) / 0.12), transparent 34%),
+    radial-gradient(circle at 92% 12%, rgb(var(--color-warning) / 0.08), transparent 36%),
+    radial-gradient(circle at 20% 86%, rgb(var(--color-success) / 0.08), transparent 32%),
+    linear-gradient(180deg, rgb(255 255 255 / 0.34), transparent 52%),
+    repeating-linear-gradient(
+      135deg,
+      rgb(255 255 255 / 0.06) 0px,
+      rgb(255 255 255 / 0.06) 8px,
+      transparent 7px,
+      transparent 24px
+    );
   font-family: var(--font-sans), sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -39,4 +47,52 @@ body {
 a {
   color: inherit;
   text-decoration: none;
+}
+
+::selection {
+  background: rgb(var(--color-primary) / 0.18);
+}
+
+.app-surface {
+  border: 1px solid rgb(16 24 40 / 0.08);
+  background: rgb(255 255 255 / 0.84);
+  box-shadow:
+    0 1px 2px rgb(16 24 40 / 0.04),
+    0 16px 40px rgb(16 24 40 / 0.06);
+  backdrop-filter: blur(8px);
+}
+
+.app-surface-strong {
+  border: 1px solid rgb(16 24 40 / 0.1);
+  background: rgb(255 255 255 / 0.92);
+  box-shadow:
+    0 1px 2px rgb(16 24 40 / 0.05),
+    0 20px 48px rgb(16 24 40 / 0.08);
+}
+
+.app-input {
+  border: 1px solid rgb(16 24 40 / 0.12);
+  background: rgb(255 255 255 / 0.96);
+  transition: border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
+}
+
+.app-input:focus {
+  border-color: rgb(var(--color-primary) / 0.45);
+  box-shadow: 0 0 0 4px rgb(var(--color-primary) / 0.14);
+  outline: none;
+}
+
+.app-btn-primary {
+  background: linear-gradient(
+    160deg,
+    rgb(var(--color-primary) / 1) 0%,
+    rgb(var(--color-primary) / 0.9) 100%
+  );
+  box-shadow:
+    0 1px 2px rgb(16 24 40 / 0.08),
+    0 10px 24px rgb(var(--color-primary) / 0.28);
+}
+
+.app-btn-primary:hover {
+  filter: brightness(0.98);
 }

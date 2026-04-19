@@ -1,36 +1,119 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Web-Based Hardware Lifecycle Management System
 
-## Getting Started
+This project is a Next.js + Supabase application for managing IT assets from registration to retirement/disposal.
 
-First, run the development server:
+## Features
+
+- Supabase Auth login for protected dashboard routes
+- Hardware registration and lifecycle status tracking
+- Maintenance logging with CSV import/export
+- Warranty monitoring (expired and expiring soon)
+- Lifecycle history tracking per hardware asset
+- Dedicated Admin Hub for system operations
+- Role-aware UI behavior aligned with RLS policies
+
+## Tech Stack
+
+- Next.js (App Router, TypeScript)
+- Supabase (Postgres, Auth, RLS)
+- TailwindCSS
+
+## Local Setup
+
+1. Install dependencies:
+
+```bash
+npm install
+```
+
+2. Create environment file:
+
+```bash
+cp .env.example .env.local
+```
+
+3. Set real Supabase values in `.env.local`:
+
+```env
+NEXT_PUBLIC_SUPABASE_URL=https://your-project-ref.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_public_key_here
+```
+
+4. Apply database setup in Supabase SQL Editor:
+
+- Run `SUPABASE_RLS.sql`
+
+This should be done before testing write operations in the app.
+
+5. Start dev server:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+6. Open:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- http://localhost:3000
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Backend Setup Notes
 
-## Learn More
+`SUPABASE_RLS.sql` includes:
 
-To learn more about Next.js, take a look at the following resources:
+- Table creation (if missing)
+- Constraints and indexes
+- Update timestamp triggers
+- Row Level Security policies
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+This script is idempotent and can be re-run safely.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Role Model
 
-## Deploy on Vercel
+The app uses role values from Supabase JWT app metadata:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- `admin`
+- `viewer` (default fallback)
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+UI and RLS behavior:
+
+- Admin: full manage access
+- Viewer: read-only access
+
+### Example SQL for assigning roles
+
+Run this in Supabase SQL Editor (replace user id and role):
+
+```sql
+update auth.users
+set raw_app_meta_data = coalesce(raw_app_meta_data, '{}'::jsonb) || '{"role":"admin"}'::jsonb
+where id = 'YOUR-USER-UUID-HERE';
+```
+
+After changing roles, sign out and sign in again to refresh JWT claims.
+
+## Quality Checks
+
+```bash
+npm run lint
+npm run build
+```
+
+Both commands should pass before deployment.
+
+## Deployment (Vercel)
+
+1. Push repository to GitHub.
+2. Import project in Vercel.
+3. Use Node.js 20.x in Vercel (matches `package.json` engines).
+4. Add environment variables in Vercel project settings:
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+5. Deploy.
+6. Confirm Supabase SQL setup has been applied in the target Supabase project.
+
+`vercel.json` is included to make framework and build commands explicit.
+
+## Important Notes
+
+- Asset IDs are unique by design.
+- Serial numbers are unique when present.
+- If you see duplicate key errors, use a new unique `asset_id` or update the existing record.
