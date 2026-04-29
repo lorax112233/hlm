@@ -1,6 +1,6 @@
 "use client";
 
-import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import DataTable from "@/components/ui/DataTable";
 import { supabase } from "@/lib/supabaseClient";
 import { toCsv } from "@/lib/csv";
@@ -45,6 +45,7 @@ export default function MaintenancePage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
+  const [ownerFilter, setOwnerFilter] = useState<"mine" | "all">("mine");
   const [editingLog, setEditingLog] = useState<MaintenanceLog | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [currentUserName, setCurrentUserName] = useState("");
@@ -104,7 +105,7 @@ export default function MaintenancePage() {
     setEditingLog(null);
   };
 
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: { preventDefault(): void }) => {
     event.preventDefault();
     setIsLoading(true);
     setErrorMessage(null);
@@ -220,9 +221,12 @@ export default function MaintenancePage() {
   const filteredLogs = useMemo(() => {
     const normalized = searchTerm.trim().toLowerCase();
     return logs.filter((log) => {
+      const matchesOwner =
+        ownerFilter === "all" ||
+        log.technician_name?.toLowerCase() === currentUserName.toLowerCase();
       const matchesStatus =
         statusFilter === "All" || log.maintenance_status === statusFilter;
-      if (!normalized) return matchesStatus;
+      if (!normalized) return matchesOwner && matchesStatus;
       const label = hardwareLabel(log.hardware_id);
       const haystack = [
         label,
@@ -232,9 +236,9 @@ export default function MaintenancePage() {
       ]
         .join(" ")
         .toLowerCase();
-      return matchesStatus && haystack.includes(normalized);
+      return matchesOwner && matchesStatus && haystack.includes(normalized);
     });
-  }, [hardwareLabel, logs, searchTerm, statusFilter]);
+  }, [hardwareLabel, logs, searchTerm, statusFilter, ownerFilter, currentUserName]);
 
   const rows = filteredLogs.map((log) => ({
     asset: hardwareLabel(log.hardware_id),
@@ -336,6 +340,22 @@ export default function MaintenancePage() {
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
+            <div className="flex overflow-hidden rounded-xl border border-black/10 bg-white text-sm">
+              <button
+                className={`px-3 py-2 font-medium transition ${ownerFilter === "mine" ? "bg-app-warning/10 text-app-warning" : "text-black/50 hover:bg-black/[0.03]"}`}
+                type="button"
+                onClick={() => setOwnerFilter("mine")}
+              >
+                My Work
+              </button>
+              <button
+                className={`px-3 py-2 font-medium transition ${ownerFilter === "all" ? "bg-black/[0.04] text-app-text" : "text-black/50 hover:bg-black/[0.03]"}`}
+                type="button"
+                onClick={() => setOwnerFilter("all")}
+              >
+                All
+              </button>
+            </div>
             <input
               className="app-input rounded-xl px-3 py-2 text-sm"
               placeholder="Search logs"

@@ -19,7 +19,7 @@ type HardwareOption = {
   device_name: string;
 };
 
-const workQueueColumns = [
+const myJobsColumns = [
   { key: "asset", label: "Asset" },
   { key: "issue", label: "Issue" },
   { key: "date", label: "Date" },
@@ -27,14 +27,22 @@ const workQueueColumns = [
   { key: "action", label: "Action" },
 ];
 
+const unassignedColumns = [
+  { key: "asset", label: "Asset" },
+  { key: "issue", label: "Issue" },
+  { key: "date", label: "Date" },
+  { key: "claim", label: "" },
+];
+
 export default function DashboardPage() {
-  const [logs, setLogs] = useState<MaintenanceLog[]>([]);
+  const [allLogs, setAllLogs] = useState<MaintenanceLog[]>([]);
   const [hardwareOptions, setHardwareOptions] = useState<HardwareOption[]>([]);
   const [underMaintenance, setUnderMaintenance] = useState(0);
   const [expiringSoon, setExpiringSoon] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [currentUserName, setCurrentUserName] = useState("");
 
   const loadActiveLogs = async () => {
     const { data } = await supabase
@@ -44,7 +52,7 @@ export default function DashboardPage() {
       )
       .in("maintenance_status", ["Open", "In Progress"])
       .order("maintenance_date", { ascending: false });
-    if (data) setLogs(data);
+    if (data) setAllLogs(data);
   };
 
   useEffect(() => {
@@ -56,7 +64,7 @@ export default function DashboardPage() {
       soon.setDate(soon.getDate() + 30);
       const soonDate = soon.toISOString().split("T")[0];
 
-      const [logsResult, hardwareResult, underMaintenanceResult, expiringResult] =
+      const [logsResult, hardwareResult, underMaintenanceResult, expiringResult, userResult] =
         await Promise.all([
           supabase
             .from("maintenance_logs")
@@ -75,16 +83,22 @@ export default function DashboardPage() {
             .select("id", { count: "exact", head: true })
             .gt("warranty_expiry", today)
             .lte("warranty_expiry", soonDate),
+          supabase.auth.getUser(),
         ]);
 
       if (!isMounted) return;
 
       if (logsResult.error) setErrorMessage(logsResult.error.message);
-      else setLogs(logsResult.data ?? []);
+      else setAllLogs(logsResult.data ?? []);
 
       if (hardwareResult.data) setHardwareOptions(hardwareResult.data);
       setUnderMaintenance(underMaintenanceResult.count ?? 0);
       setExpiringSoon(expiringResult.count ?? 0);
+
+      const metadata = userResult.data.user?.user_metadata ?? {};
+      const name = metadata.full_name || userResult.data.user?.email || "";
+      setCurrentUserName(name);
+
       setIsLoading(false);
     };
 
@@ -102,6 +116,26 @@ export default function DashboardPage() {
     [hardwareOptions],
   );
 
+  // Jobs the admin assigned to this technician by name
+  const myJobs = useMemo(
+    () =>
+      allLogs.filter(
+        (l) =>
+          l.technician_name &&
+          l.technician_name.toLowerCase() === currentUserName.toLowerCase(),
+      ),
+    [allLogs, currentUserName],
+  );
+
+  // Open jobs with no technician assigned yet — available to self-assign
+  const unassignedJobs = useMemo(
+    () =>
+      allLogs.filter(
+        (l) => !l.technician_name && l.maintenance_status === "Open",
+      ),
+    [allLogs],
+  );
+
   const handleStatusUpdate = async (logId: string, newStatus: string) => {
     setUpdatingId(logId);
     await supabase
@@ -112,12 +146,17 @@ export default function DashboardPage() {
     setUpdatingId(null);
   };
 
-  const openCount = logs.filter((l) => l.maintenance_status === "Open").length;
-  const inProgressCount = logs.filter(
-    (l) => l.maintenance_status === "In Progress",
-  ).length;
+  const handleClaim = async (logId: string) => {
+    setUpdatingId(logId);
+    await supabase
+      .from("maintenance_logs")
+      .update({ technician_name: currentUserName, maintenance_status: "In Progress" })
+      .eq("id", logId);
+    await loadActiveLogs();
+    setUpdatingId(null);
+  };
 
-  const workQueueRows = logs.map((log) => ({
+  const myJobRows = myJobs.map((log) => ({
     asset: hardwareLookup.get(log.hardware_id) ?? "Unknown",
     issue: log.issue_description,
     date: log.maintenance_date,
@@ -148,6 +187,22 @@ export default function DashboardPage() {
     ),
   }));
 
+  const unassignedRows = unassignedJobs.map((log) => ({
+    asset: hardwareLookup.get(log.hardware_id) ?? "Unknown",
+    issue: log.issue_description,
+    date: log.maintenance_date,
+    claim: (
+      <button
+        className="rounded-lg border border-app-primary/25 bg-app-primary/8 px-2.5 py-1 text-xs font-semibold text-app-primary transition hover:bg-app-primary/15 disabled:opacity-50"
+        type="button"
+        disabled={updatingId === log.id}
+        onClick={() => handleClaim(log.id)}
+      >
+        {updatingId === log.id ? "..." : "Claim"}
+      </button>
+    ),
+  }));
+
   return (
     <div className="space-y-6">
       <section className="relative overflow-hidden rounded-3xl border border-app-warning/30 bg-white/90 p-6 shadow-sm shadow-black/5">
@@ -159,7 +214,11 @@ export default function DashboardPage() {
           Work Queue
         </h1>
         <p className="mt-1 text-sm text-black/55">
-          Active tickets and jobs that need your attention.
+          {currentUserName ? (
+            <>Jobs assigned to <span className="font-medium text-app-text">{currentUserName}</span>, plus unassigned tickets you can claim.</>
+          ) : (
+            "Your assigned jobs and available tickets."
+          )}
         </p>
       </section>
 
@@ -170,20 +229,20 @@ export default function DashboardPage() {
       ) : null}
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <div className="rounded-2xl border border-app-danger/20 bg-white/88 px-4 py-3 shadow-sm shadow-black/5">
-          <p className="text-[10px] uppercase tracking-[0.25em] text-black/40">
-            Open Tickets
-          </p>
-          <p className="mt-1 text-2xl font-semibold text-app-danger">
-            {openCount}
-          </p>
-        </div>
         <div className="rounded-2xl border border-app-warning/20 bg-white/88 px-4 py-3 shadow-sm shadow-black/5">
           <p className="text-[10px] uppercase tracking-[0.25em] text-black/40">
-            In Progress
+            Assigned to Me
           </p>
           <p className="mt-1 text-2xl font-semibold text-app-warning">
-            {inProgressCount}
+            {myJobs.length}
+          </p>
+        </div>
+        <div className="rounded-2xl border border-black/8 bg-white/88 px-4 py-3 shadow-sm shadow-black/5">
+          <p className="text-[10px] uppercase tracking-[0.25em] text-black/40">
+            Unassigned
+          </p>
+          <p className="mt-1 text-2xl font-semibold text-app-text">
+            {unassignedJobs.length}
           </p>
         </div>
         <div className="rounded-2xl border border-black/8 bg-white/88 px-4 py-3 shadow-sm shadow-black/5">
@@ -204,28 +263,49 @@ export default function DashboardPage() {
         </div>
       </section>
 
-      <section className="space-y-4 rounded-3xl border border-black/8 bg-white/88 p-5 shadow-sm shadow-black/5">
+      {/* My assigned jobs — from admin setting technician_name = this user */}
+      <section className="space-y-4 rounded-3xl border border-app-warning/20 bg-white/88 p-5 shadow-sm shadow-black/5">
         <div>
           <p className="text-xs uppercase tracking-[0.2em] text-black/40">
-            Active Work
+            Assigned to me
           </p>
-          <h3 className="text-lg font-semibold text-app-text">
-            Open &amp; In-Progress Tickets
-          </h3>
+          <h3 className="text-lg font-semibold text-app-text">My Jobs</h3>
           <p className="mt-1 text-sm text-black/50">
-            Update status as you work through each job.
+            Jobs the admin assigned to you. Start or resolve them here.
           </p>
         </div>
         {isLoading ? (
           <div className="rounded-2xl border border-dashed border-black/10 bg-white/60 p-6 text-sm text-black/60">
             Loading...
           </div>
-        ) : workQueueRows.length === 0 ? (
+        ) : myJobRows.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-black/10 bg-white/60 p-6 text-sm text-black/60">
-            No open or in-progress tickets. All clear!
+            No jobs assigned to you yet.
           </div>
         ) : (
-          <DataTable columns={workQueueColumns} rows={workQueueRows} />
+          <DataTable columns={myJobsColumns} rows={myJobRows} />
+        )}
+      </section>
+
+      {/* Unassigned jobs — admin created but hasn't named a technician yet */}
+      <section className="space-y-4 rounded-3xl border border-black/8 bg-white/88 p-5 shadow-sm shadow-black/5">
+        <div>
+          <p className="text-xs uppercase tracking-[0.2em] text-black/40">
+            Available
+          </p>
+          <h3 className="text-lg font-semibold text-app-text">
+            Unassigned Jobs
+          </h3>
+          <p className="mt-1 text-sm text-black/50">
+            Open tickets with no technician yet. Claim one to assign it to yourself.
+          </p>
+        </div>
+        {isLoading ? null : unassignedRows.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-black/10 bg-white/60 p-6 text-sm text-black/60">
+            No unassigned tickets right now.
+          </div>
+        ) : (
+          <DataTable columns={unassignedColumns} rows={unassignedRows} />
         )}
       </section>
     </div>
