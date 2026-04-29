@@ -32,9 +32,10 @@ const columns = [
   { key: "actions", label: "Actions" },
 ];
 
-const viewerColumns = columns.filter((column) => column.key !== "actions");
+const TechnicianColumns = columns.filter((column) => column.key !== "actions");
 
 export default function HardwarePage() {
+  // Local UI state for table data, forms, filters, and import/export feedback.
   const [assets, setAssets] = useState<HardwareAsset[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -43,9 +44,10 @@ export default function HardwarePage() {
   const [statusFilter, setStatusFilter] = useState("All");
   const [importMessage, setImportMessage] = useState<string | null>(null);
   const [isImporting, setIsImporting] = useState(false);
-  const role: "admin" | "viewer" = "admin";
+  const role: "admin" | "technician" = "admin";
   const isAdmin = true;
 
+  // Base query reused by initial load and refresh operations.
   const fetchAssets = async () =>
     supabase
       .from("hardware_assets")
@@ -68,6 +70,7 @@ export default function HardwarePage() {
   useEffect(() => {
     let isMounted = true;
 
+    // Initial data fetch for first paint.
     const loadInitialAssets = async () => {
       const { data, error } = await fetchAssets();
 
@@ -95,6 +98,7 @@ export default function HardwarePage() {
     oldStatus: string | null,
     newStatus: string,
   ) => {
+    // Keep status change events in an audit table separate from current asset state.
     const { data } = await supabase.auth.getUser();
     const changedBy = data.user?.email ?? "system";
 
@@ -117,6 +121,7 @@ export default function HardwarePage() {
     warranty_expiry: string;
     assigned_to: string;
   }) => {
+    // UI permission guard complements RLS (database still enforces final authorization).
     if (!canManageHardware(role)) {
       setErrorMessage("Only Admin users can create hardware assets.");
       return;
@@ -157,6 +162,7 @@ export default function HardwarePage() {
     }
 
     if (data) {
+      // Newly created records also generate an initial lifecycle history entry.
       await recordLifecycleChange(data.id, null, data.lifecycle_status);
     }
 
@@ -207,6 +213,7 @@ export default function HardwarePage() {
     }
 
     if (editingAsset.lifecycle_status !== values.lifecycle_status) {
+      // Only write history row when lifecycle status actually changed.
       await recordLifecycleChange(
         editingAsset.id,
         editingAsset.lifecycle_status,
@@ -255,6 +262,7 @@ export default function HardwarePage() {
   ];
 
   const handleExport = () => {
+    // Convert in-memory rows to CSV and trigger browser download.
     const rowsToExport = assets.map((asset) => ({
       asset_id: asset.asset_id,
       device_name: asset.device_name,
@@ -296,6 +304,7 @@ export default function HardwarePage() {
     }
 
     const headers = rows[0].map((header) => header.trim().toLowerCase());
+    // Header-driven lookup keeps CSV column order flexible.
     const getValue = (row: string[], key: string) => {
       const index = headers.indexOf(key);
       if (index === -1) {
@@ -350,6 +359,7 @@ export default function HardwarePage() {
   };
 
   const filteredAssets = useMemo(() => {
+    // Client-side search and status filtering for responsive table interaction.
     const normalized = searchTerm.trim().toLowerCase();
 
     return assets.filter((asset) => {
@@ -375,6 +385,7 @@ export default function HardwarePage() {
   }, [assets, searchTerm, statusFilter]);
 
   const assetStats = useMemo(() => {
+    // Lightweight derived counts used for summary cards.
     const total = assets.length;
     const active = assets.filter((asset) => asset.lifecycle_status === "Active").length;
     const maintenance = assets.filter(
@@ -421,7 +432,7 @@ export default function HardwarePage() {
     ),
   }));
 
-  const viewerRows = filteredAssets.map((asset) => ({
+  const TechnicianRows = filteredAssets.map((asset) => ({
     asset: asset.asset_id,
     name: asset.device_name,
     type: asset.device_type,
@@ -438,7 +449,7 @@ export default function HardwarePage() {
     return (
       <div className="space-y-6">
         <section className="rounded-3xl border border-app-warning/25 bg-white/88 p-6 shadow-sm shadow-black/5">
-          <p className="text-[10px] uppercase tracking-[0.3em] text-black/40">Viewer</p>
+          <p className="text-[10px] uppercase tracking-[0.3em] text-black/40">Technician</p>
           <h3 className="mt-2 text-xl font-semibold text-app-text">Hardware Data</h3>
           <p className="mt-1 text-sm text-black/55">Read-only asset records and status.</p>
         </section>
@@ -489,12 +500,12 @@ export default function HardwarePage() {
               {errorMessage}
             </p>
           ) : null}
-          {viewerRows.length === 0 ? (
+          {TechnicianRows.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-black/10 bg-white/60 p-6 text-sm text-black/60">
               {emptyMessage}
             </div>
           ) : null}
-          <DataTable columns={viewerColumns} rows={viewerRows} />
+          <DataTable columns={TechnicianColumns} rows={TechnicianRows} />
         </section>
       </div>
     );
@@ -517,7 +528,7 @@ export default function HardwarePage() {
           </div>
           {!isAdmin ? (
             <span className="rounded-lg border border-app-warning/30 bg-app-warning/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.15em] text-app-warning">
-              Viewer Mode
+              Technician Mode
             </span>
           ) : null}
         </div>
@@ -649,5 +660,6 @@ export default function HardwarePage() {
     </div>
   );
 }
+
 
 

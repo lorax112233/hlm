@@ -1,10 +1,11 @@
 import type { User } from "@supabase/supabase-js";
 
-export type UserRole = "admin" | "viewer";
+export type UserRole = "admin" | "technician";
 
+// Normalize unknown role strings and default to technician for safety.
 const normalizeRole = (value: unknown): UserRole => {
   if (typeof value !== "string") {
-    return "viewer";
+    return "technician";
   }
 
   const normalized = value.trim().toLowerCase();
@@ -12,12 +13,13 @@ const normalizeRole = (value: unknown): UserRole => {
     return "admin";
   }
 
-  return "viewer";
+  return "technician";
 };
 
+// Read role from JWT app metadata first, then fallback to user metadata.
 export const getUserRole = (user: User | null): UserRole => {
   if (!user) {
-    return "viewer";
+    return "technician";
   }
 
   const appRole = user.app_metadata?.role;
@@ -29,6 +31,7 @@ export const getUserRole = (user: User | null): UserRole => {
   return normalizeRole(userRole);
 };
 
+// Frontend permission helpers mirror backend policy intent.
 export const canDeleteHardware = (role: UserRole) => role === "admin";
 
 export const canManageHardware = (role: UserRole) => role === "admin";
@@ -36,12 +39,15 @@ export const canManageHardware = (role: UserRole) => role === "admin";
 export const canDeleteMaintenance = (role: UserRole) =>
   role === "admin";
 
-export const canManageMaintenance = (role: UserRole) => role === "admin";
+export const canManageMaintenance = (role: UserRole) =>
+  role === "admin" || role === "technician";
 
+// Small display helper for badges and profile labels.
 export const formatRole = (role: UserRole) => {
   if (role === "admin") {
     return "Admin";
   }
 
-  return "Viewer";
+  return "Technician";
 };
+

@@ -19,9 +19,11 @@ const columns = [
   { key: "status", label: "Status" },
 ];
 
+// Shared conversion constant for milliseconds-to-days calculations.
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
 
 export default function WarrantyPage() {
+  // State: source rows, filter controls, and request error feedback.
   const [assets, setAssets] = useState<WarrantyAsset[]>([]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
@@ -29,6 +31,7 @@ export default function WarrantyPage() {
   const isAdmin = true;
 
   useEffect(() => {
+    // Load only assets with warranty dates because undated records are not actionable here.
     const loadAssets = async () => {
       const { data, error } = await supabase
         .from("hardware_assets")
@@ -48,6 +51,7 @@ export default function WarrantyPage() {
   }, []);
 
   const { rows, expiredCount, expiringCount } = useMemo(() => {
+    // Derive risk classification (OK, Expiring Soon, Expired) from expiry dates.
     const today = new Date();
     const end = new Date();
     end.setDate(today.getDate() + 30);
@@ -98,6 +102,7 @@ export default function WarrantyPage() {
   }, [assets]);
 
   const filteredRows = useMemo(() => {
+    // Apply status and text filters locally for responsive table UX.
     const normalized = searchTerm.trim().toLowerCase();
 
     return rows.filter((row) => {
@@ -124,7 +129,7 @@ export default function WarrantyPage() {
     return (
       <div className="space-y-6">
         <section className="rounded-3xl border border-app-warning/25 bg-white/88 p-6 shadow-sm shadow-black/5">
-          <p className="text-[10px] uppercase tracking-[0.3em] text-black/40">Viewer</p>
+          <p className="text-[10px] uppercase tracking-[0.3em] text-black/40">Technician</p>
           <h3 className="mt-2 text-xl font-semibold text-app-text">Warranty Data</h3>
           <p className="mt-1 text-sm text-black/55">Read-only warranty coverage status.</p>
         </section>
@@ -206,7 +211,7 @@ export default function WarrantyPage() {
                   : "border border-app-warning/30 bg-app-warning/10 text-app-warning"
               }`}
             >
-              {isAdmin ? "Admin Access" : "Viewer Access"}
+              {isAdmin ? "Admin Access" : "Technician Access"}
             </span>
           </div>
         </div>
@@ -273,5 +278,6 @@ export default function WarrantyPage() {
     </div>
   );
 }
+
 
 

@@ -20,16 +20,18 @@ const emptyProfile: ProfileValues = {
 
 export default function ProfilePage() {
   const router = useRouter();
+  // Profile form state and async UI flags.
   const [values, setValues] = useState<ProfileValues>(emptyProfile);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const role: "admin" | "viewer" = "admin";
+  const role: "admin" | "technician" = "admin";
 
   useEffect(() => {
     let isMounted = true;
 
+    // Read current auth user and hydrate editable profile fields.
     const loadProfile = async () => {
       const { data, error } = await supabase.auth.getUser();
 
@@ -64,6 +66,7 @@ export default function ProfilePage() {
   };
 
   const handleSave = async (event: React.FormEvent<HTMLFormElement>) => {
+    // Persist profile metadata (and optionally email) through Supabase Auth.
     event.preventDefault();
     setIsSaving(true);
     setErrorMessage(null);
@@ -91,6 +94,7 @@ export default function ProfilePage() {
   };
 
   const handleSignOut = async () => {
+    // Clear session and route back to login entry point.
     await supabase.auth.signOut();
     router.replace("/login");
   };
@@ -107,7 +111,7 @@ export default function ProfilePage() {
     return (
       <div className="mx-auto w-full max-w-3xl space-y-6">
         <section className="rounded-3xl border border-app-warning/25 bg-white/88 p-6 shadow-sm shadow-black/5">
-          <p className="text-[10px] uppercase tracking-[0.3em] text-black/40">Viewer</p>
+          <p className="text-[10px] uppercase tracking-[0.3em] text-black/40">Technician</p>
           <h3 className="mt-2 text-xl font-semibold text-app-text">Profile Data</h3>
           <p className="mt-1 text-sm text-black/55">Read-only account details.</p>
         </section>
@@ -129,7 +133,7 @@ export default function ProfilePage() {
                 {values.fullName || "No name set"}
               </p>
               <p className="text-sm text-black/60">{values.email}</p>
-              <p className="mt-1 text-xs uppercase tracking-[0.2em] text-app-warning">Viewer</p>
+              <p className="mt-1 text-xs uppercase tracking-[0.2em] text-app-warning">Technician</p>
             </div>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
@@ -286,5 +290,6 @@ export default function ProfilePage() {
     </div>
   );
 }
+
 
 

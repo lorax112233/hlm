@@ -34,3 +34,4 @@ Make structural decisions that keep the system understandable, scalable, and eas
 - Options considered.
 - Selected architecture and trade-offs.
 - Incremental rollout plan.
+

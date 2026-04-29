@@ -15,20 +15,22 @@ type RoleContextValue = {
   role: UserRole;
   userId: string | null;
   isAdmin: boolean;
-  isViewer: boolean;
+  isTechnician: boolean;
   isLoading: boolean;
 };
 
 const RoleContext = createContext<RoleContextValue | null>(null);
 
 export function RoleProvider({ children }: { children: ReactNode }) {
-  const [role, setRole] = useState<UserRole>("viewer");
+  // Least-privilege defaults until user metadata is loaded.
+  const [role, setRole] = useState<UserRole>("technician");
   const [userId, setUserId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     let isMounted = true;
 
+    // Resolve role from the current authenticated user.
     const syncRole = async () => {
       const { data } = await supabase.auth.getUser();
 
@@ -41,9 +43,10 @@ export function RoleProvider({ children }: { children: ReactNode }) {
       setIsLoading(false);
     };
 
+    // React to auth changes so role state stays current.
     const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "SIGNED_OUT") {
-        setRole("viewer");
+        setRole("technician");
         setUserId(null);
         setIsLoading(false);
         return;
@@ -64,12 +67,13 @@ export function RoleProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  // Memoize derived role flags to avoid unnecessary re-renders downstream.
   const value = useMemo(
     () => ({
       role,
       userId,
       isAdmin: role === "admin",
-      isViewer: role === "viewer",
+      isTechnician: role === "technician",
       isLoading,
     }),
     [isLoading, role, userId],
@@ -81,9 +85,11 @@ export function RoleProvider({ children }: { children: ReactNode }) {
 export function useRole() {
   const context = useContext(RoleContext);
 
+  // Guard misuse to keep provider boundaries explicit.
   if (!context) {
     throw new Error("useRole must be used inside RoleProvider.");
   }
 
   return context;
 }
+

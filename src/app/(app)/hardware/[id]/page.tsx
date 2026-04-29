@@ -50,6 +50,7 @@ const historyColumns = [
   { key: "date", label: "Date" },
 ];
 
+// Defensive date formatter used by summary cards and table rows.
 const formatDate = (value: string | null) => {
   if (!value) {
     return "-";
@@ -66,6 +67,7 @@ const formatDate = (value: string | null) => {
 export default function HardwareDetailPage() {
   const router = useRouter();
   const params = useParams();
+  // Route param can be string[] in Next.js dynamic routes, so normalize to a single id.
   const assetId = Array.isArray(params.id) ? params.id[0] : params.id;
 
   const [asset, setAsset] = useState<HardwareAsset | null>(null);
@@ -77,6 +79,7 @@ export default function HardwareDetailPage() {
   useEffect(() => {
     let isMounted = true;
 
+    // Fetch asset snapshot, maintenance logs, and lifecycle history in parallel.
     const loadDetails = async () => {
       if (!assetId) {
         return;
@@ -143,6 +146,7 @@ export default function HardwareDetailPage() {
   }, [assetId]);
 
   const maintenanceRows = useMemo(
+    // Normalize table row shape for DataTable component.
     () =>
       maintenanceLogs.map((log) => ({
         date: formatDate(log.maintenance_date),
@@ -155,6 +159,7 @@ export default function HardwareDetailPage() {
   );
 
   const historyRows = useMemo(
+    // Present lifecycle audit entries in a readable table format.
     () =>
       history.map((entry) => ({
         from: entry.old_status ?? "-",

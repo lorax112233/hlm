@@ -68,7 +68,7 @@ export default function ProfilePage() {
   return (
     <div className="mx-auto w-full max-w-3xl space-y-6">
       <section className="rounded-3xl border border-app-warning/25 bg-white/88 p-6 shadow-sm shadow-black/5">
-        <p className="text-[10px] uppercase tracking-[0.3em] text-black/40">Viewer</p>
+        <p className="text-[10px] uppercase tracking-[0.3em] text-black/40">Technician</p>
         <h3 className="mt-2 text-xl font-semibold text-app-text">Profile Data</h3>
         <p className="mt-1 text-sm text-black/55">Read-only account details.</p>
       </section>
@@ -88,7 +88,7 @@ export default function ProfilePage() {
           <div>
             <p className="text-sm font-semibold text-app-text">{values.fullName || "No name set"}</p>
             <p className="text-sm text-black/60">{values.email}</p>
-            <p className="mt-1 text-xs uppercase tracking-[0.2em] text-app-warning">Viewer</p>
+            <p className="mt-1 text-xs uppercase tracking-[0.2em] text-app-warning">Technician</p>
           </div>
         </div>
 
@@ -114,3 +114,4 @@ export default function ProfilePage() {
     </div>
   );
 }
+

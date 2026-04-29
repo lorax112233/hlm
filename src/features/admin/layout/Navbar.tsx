@@ -39,7 +39,7 @@ export default function Navbar() {
   }).format(new Date());
   const [displayName, setDisplayName] = useState("Admin");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
-  const role: "admin" | "viewer" = "admin";
+  const role: "admin" | "technician" = "admin";
   const isAdmin = true;
 
   useEffect(() => {
@@ -87,7 +87,7 @@ export default function Navbar() {
     >
       <div>
         <p className="text-[10px] uppercase tracking-[0.28em] text-black/45">
-          {isAdmin ? "Console" : "Viewer Portal"}
+          {isAdmin ? "Console" : "Technician Portal"}
         </p>
         <h2 className="text-xl font-semibold tracking-tight text-app-text">{pageTitle}</h2>
       </div>
@@ -124,5 +124,6 @@ export default function Navbar() {
     </header>
   );
 }
+
 
 

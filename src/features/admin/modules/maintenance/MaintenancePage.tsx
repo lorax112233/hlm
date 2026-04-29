@@ -33,9 +33,10 @@ const columns = [
   { key: "actions", label: "Actions" },
 ];
 
-const viewerColumns = columns.filter((column) => column.key !== "actions");
+const TechnicianColumns = columns.filter((column) => column.key !== "actions");
 
 export default function MaintenancePage() {
+  // State buckets: lookup data, records, form editing, filters, and import/export status.
   const [hardwareOptions, setHardwareOptions] = useState<HardwareOption[]>([]);
   const [logs, setLogs] = useState<MaintenanceLog[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -45,7 +46,7 @@ export default function MaintenancePage() {
   const [importMessage, setImportMessage] = useState<string | null>(null);
   const [isImporting, setIsImporting] = useState(false);
   const [editingLog, setEditingLog] = useState<MaintenanceLog | null>(null);
-  const role: "admin" | "viewer" = "admin";
+  const role: "admin" | "technician" = "admin";
   const isAdmin = true;
   const [formValues, setFormValues] = useState({
     hardware_id: "",
@@ -84,6 +85,7 @@ export default function MaintenancePage() {
   useEffect(() => {
     let isMounted = true;
 
+    // Load supporting hardware map and maintenance rows in parallel.
     const loadInitialData = async () => {
       const [hardwareResult, logsResult] = await Promise.all([
         fetchHardwareOptions(),
@@ -133,6 +135,7 @@ export default function MaintenancePage() {
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
+    // Permission guard in UI; RLS remains the final security check.
     if (!canManageMaintenance(role)) {
       setErrorMessage("Only Admin users can create or update maintenance logs.");
       return;
@@ -236,6 +239,7 @@ export default function MaintenancePage() {
   ];
 
   const resolveHardwareId = (hardwareId: string, assetId: string) => {
+    // Import helper: allow CSV rows to reference either hardware UUID or asset_id.
     if (hardwareId) {
       return hardwareId;
     }
@@ -251,6 +255,7 @@ export default function MaintenancePage() {
   };
 
   const handleExport = () => {
+    // Denormalize hardware relation so exported CSV is human-readable.
     const rowsToExport = logs.map((log) => {
       const label = hardwareOptions.find((item) => item.id === log.hardware_id);
 
@@ -295,6 +300,7 @@ export default function MaintenancePage() {
     }
 
     const headers = rows[0].map((header) => header.trim().toLowerCase());
+    // Dynamic header resolver allows flexible CSV column order.
     const getValue = (row: string[], key: string) => {
       const index = headers.indexOf(key);
       if (index === -1) {
@@ -349,6 +355,7 @@ export default function MaintenancePage() {
   };
 
   const filteredLogs = useMemo(() => {
+    // Apply status + text filters client-side for fast dashboard interaction.
     const normalized = searchTerm.trim().toLowerCase();
 
     return logs.filter((log) => {
@@ -374,6 +381,7 @@ export default function MaintenancePage() {
   }, [hardwareLabel, logs, searchTerm, statusFilter]);
 
   const maintenanceStats = useMemo(() => {
+    // Derived status counts feed summary cards.
     const open = logs.filter((log) => log.maintenance_status === "Open").length;
     const inProgress = logs.filter(
       (log) => log.maintenance_status === "In Progress",
@@ -421,7 +429,7 @@ export default function MaintenancePage() {
     ),
   }));
 
-  const viewerRows = filteredLogs.map((log) => ({
+  const TechnicianRows = filteredLogs.map((log) => ({
     asset: hardwareLabel(log.hardware_id),
     issue: log.issue_description,
     technician: log.technician_name ?? "-",
@@ -437,7 +445,7 @@ export default function MaintenancePage() {
     return (
       <div className="space-y-6">
         <section className="rounded-3xl border border-app-warning/25 bg-white/88 p-6 shadow-sm shadow-black/5">
-          <p className="text-[10px] uppercase tracking-[0.3em] text-black/40">Viewer</p>
+          <p className="text-[10px] uppercase tracking-[0.3em] text-black/40">Technician</p>
           <h3 className="mt-2 text-xl font-semibold text-app-text">Maintenance Data</h3>
           <p className="mt-1 text-sm text-black/55">Read-only maintenance logs and status.</p>
         </section>
@@ -486,12 +494,12 @@ export default function MaintenancePage() {
               {errorMessage}
             </p>
           ) : null}
-          {viewerRows.length === 0 ? (
+          {TechnicianRows.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-black/10 bg-white/60 p-6 text-sm text-black/60">
               {emptyMessage}
             </div>
           ) : null}
-          <DataTable columns={viewerColumns} rows={viewerRows} />
+          <DataTable columns={TechnicianColumns} rows={TechnicianRows} />
         </section>
       </div>
     );
@@ -519,7 +527,7 @@ export default function MaintenancePage() {
                 : "border border-app-warning/30 bg-app-warning/10 text-app-warning"
             }`}
           >
-            {isAdmin ? "Admin Access" : "Viewer Access"}
+            {isAdmin ? "Admin Access" : "Technician Access"}
           </span>
         </div>
         <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -730,5 +738,6 @@ export default function MaintenancePage() {
     </div>
   );
 }
+
 
 

@@ -12,6 +12,12 @@ This project is a Next.js + Supabase application for managing IT assets from reg
 - Dedicated Admin Hub for system operations
 - Role-aware UI behavior aligned with RLS policies
 
+## Study Guide
+
+For deep code walkthrough and defense prep, see:
+
+- [SYSTEM_STUDY_GUIDE.md](SYSTEM_STUDY_GUIDE.md)
+
 ## Tech Stack
 
 - Next.js (App Router, TypeScript)
@@ -71,12 +77,12 @@ This script is idempotent and can be re-run safely.
 The app uses role values from Supabase JWT app metadata:
 
 - `admin`
-- `viewer` (default fallback)
+- `Technician` (default fallback)
 
 UI and RLS behavior:
 
 - Admin: full manage access
-- Viewer: read-only access
+- Technician: read-only access
 
 ### Example SQL for assigning roles
 
@@ -117,3 +123,4 @@ Both commands should pass before deployment.
 - Asset IDs are unique by design.
 - Serial numbers are unique when present.
 - If you see duplicate key errors, use a new unique `asset_id` or update the existing record.
+

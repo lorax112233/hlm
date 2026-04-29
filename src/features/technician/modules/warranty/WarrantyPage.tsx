@@ -124,7 +124,7 @@ export default function WarrantyPage() {
     return (
       <div className="space-y-6">
         <section className="rounded-3xl border border-app-warning/25 bg-white/88 p-6 shadow-sm shadow-black/5">
-          <p className="text-[10px] uppercase tracking-[0.3em] text-black/40">Viewer</p>
+          <p className="text-[10px] uppercase tracking-[0.3em] text-black/40">Technician</p>
           <h3 className="mt-2 text-xl font-semibold text-app-text">Warranty Data</h3>
           <p className="mt-1 text-sm text-black/55">Read-only warranty coverage status.</p>
         </section>
@@ -206,7 +206,7 @@ export default function WarrantyPage() {
                   : "border border-app-warning/30 bg-app-warning/10 text-app-warning"
               }`}
             >
-              {isAdmin ? "Admin Access" : "Viewer Access"}
+              {isAdmin ? "Admin Access" : "Technician Access"}
             </span>
           </div>
         </div>
@@ -273,5 +273,6 @@ export default function WarrantyPage() {
     </div>
   );
 }
+
 
 

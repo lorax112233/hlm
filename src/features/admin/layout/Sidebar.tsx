@@ -20,7 +20,7 @@ const adminNavItems = [
   { name: "Profile", href: "/profile", icon: UserCircleIcon },
 ];
 
-const viewerNavItems = [
+const TechnicianNavItems = [
   { name: "Overview", href: "/dashboard", icon: Squares2X2Icon },
   { name: "Hardware Data", href: "/hardware", icon: CpuChipIcon },
   { name: "Maintenance Data", href: "/maintenance", icon: WrenchScrewdriverIcon },
@@ -31,7 +31,7 @@ export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const isAdmin = true;
-  const navItems = isAdmin ? adminNavItems : viewerNavItems;
+  const navItems = isAdmin ? adminNavItems : TechnicianNavItems;
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -51,14 +51,14 @@ export default function Sidebar() {
           Hardware Lifecycle
         </p>
         <h1 className="text-lg font-semibold tracking-tight text-app-text">
-          {isAdmin ? "HLM Console" : "HLM Viewer"}
+          {isAdmin ? "HLM Console" : "HLM Technician"}
         </h1>
         <p
           className={`mt-1 text-[11px] uppercase tracking-[0.2em] ${
             isAdmin ? "text-app-primary" : "text-app-warning"
           }`}
         >
-          {isAdmin ? "Admin" : "Viewer"}
+          {isAdmin ? "Admin" : "Technician"}
         </p>
       </div>
       {!isAdmin ? (
@@ -113,5 +113,6 @@ export default function Sidebar() {
     </aside>
   );
 }
+
 
 

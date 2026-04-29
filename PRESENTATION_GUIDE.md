@@ -185,7 +185,7 @@ File:
 
 What to say:
 - Role is derived from Supabase JWT metadata (`app_metadata.role`).
-- Fallback role is `viewer` if none is defined.
+- Fallback role is `Technician` if none is defined.
 - Permission helpers keep UI conditions readable and consistent.
 
 Why important:
@@ -254,7 +254,7 @@ You currently use a single UI shell (same pages), but behavior changes by role:
 - Can delete hardware
 - Can delete maintenance logs
 
-2. Viewer
+2. Technician
 - Read-only access
 - Forms hidden/blocked in hardware and maintenance pages
 
@@ -276,3 +276,4 @@ where id = 'YOUR-USER-UUID';
 ```
 
 After running it, sign out and sign in to refresh JWT claims.
+

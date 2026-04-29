@@ -6,7 +6,9 @@ import { RoleProvider } from "@/lib/roleContext";
 
 export default function AppLayout({ children }: { children: ReactNode }) {
   return (
+    // AuthGate blocks unauthenticated access to all /(app) routes.
     <AuthGate>
+      {/* RoleProvider exposes role flags used by navbar/sidebar/page wrappers. */}
       <RoleProvider>
         <div className="min-h-screen bg-app-bg text-app-text">
           <div className="flex min-h-screen">
@@ -23,3 +25,4 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     </AuthGate>
   );
 }
+

@@ -171,6 +171,16 @@ as $$
   select coalesce((auth.jwt() -> 'app_metadata' ->> 'role') = 'technician', false);
 $$;
 
+create or replace function public.is_assigned_technician(assigned_to text)
+returns boolean
+language sql
+stable
+as $$
+  select
+    public.is_technician()
+    and lower(coalesce(assigned_to, '')) = lower(coalesce(auth.jwt() ->> 'email', ''));
+$$;
+
 -- Remove old policies so names are deterministic.
 drop policy if exists hardware_assets_select_auth on public.hardware_assets;
 drop policy if exists hardware_assets_insert_auth on public.hardware_assets;
@@ -192,7 +202,10 @@ create policy hardware_assets_select_auth
 on public.hardware_assets
 for select
 to authenticated
-using (true);
+using (
+  public.is_admin()
+  or public.is_assigned_technician(assigned_to)
+);
 
 create policy hardware_assets_insert_auth
 on public.hardware_assets
@@ -218,20 +231,52 @@ create policy maintenance_logs_select_auth
 on public.maintenance_logs
 for select
 to authenticated
-using (true);
+using (
+  public.is_admin()
+  or exists (
+    select 1
+    from public.hardware_assets h
+    where h.id = maintenance_logs.hardware_id
+      and public.is_assigned_technician(h.assigned_to)
+  )
+);
 
 create policy maintenance_logs_insert_auth
 on public.maintenance_logs
 for insert
 to authenticated
-with check (public.is_admin());
+with check (
+  public.is_admin()
+  or exists (
+    select 1
+    from public.hardware_assets h
+    where h.id = maintenance_logs.hardware_id
+      and public.is_assigned_technician(h.assigned_to)
+  )
+);
 
 create policy maintenance_logs_update_auth
 on public.maintenance_logs
 for update
 to authenticated
-using (public.is_admin())
-with check (public.is_admin());
+using (
+  public.is_admin()
+  or exists (
+    select 1
+    from public.hardware_assets h
+    where h.id = maintenance_logs.hardware_id
+      and public.is_assigned_technician(h.assigned_to)
+  )
+)
+with check (
+  public.is_admin()
+  or exists (
+    select 1
+    from public.hardware_assets h
+    where h.id = maintenance_logs.hardware_id
+      and public.is_assigned_technician(h.assigned_to)
+  )
+);
 
 create policy maintenance_logs_delete_auth
 on public.maintenance_logs
@@ -244,7 +289,15 @@ create policy lifecycle_history_select_auth
 on public.lifecycle_history
 for select
 to authenticated
-using (true);
+using (
+  public.is_admin()
+  or exists (
+    select 1
+    from public.hardware_assets h
+    where h.id = lifecycle_history.hardware_id
+      and public.is_assigned_technician(h.assigned_to)
+  )
+);
 
 create policy lifecycle_history_insert_auth
 on public.lifecycle_history
@@ -264,3 +317,4 @@ on public.lifecycle_history
 for delete
 to authenticated
 using (public.is_admin());
+

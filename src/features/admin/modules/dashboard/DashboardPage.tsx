@@ -22,9 +22,10 @@ const columns = [
   { key: "actions", label: "Actions" },
 ];
 
-const viewerColumns = columns.filter((column) => column.key !== "actions");
+const TechnicianColumns = columns.filter((column) => column.key !== "actions");
 
 export default function DashboardPage() {
+  // Dashboard state: metrics, recent records, filters, and error/loading flags.
   const [searchTerm, setSearchTerm] = useState("");
   const [totalAssets, setTotalAssets] = useState(0);
   const [activeAssets, setActiveAssets] = useState(0);
@@ -38,6 +39,7 @@ export default function DashboardPage() {
   useEffect(() => {
     let isMounted = true;
 
+    // Pull dashboard metrics concurrently for a faster first render.
     const loadDashboard = async () => {
       setIsLoading(true);
       setErrorMessage(null);
@@ -107,6 +109,7 @@ export default function DashboardPage() {
   }, []);
 
   const filteredAssets = useMemo(() => {
+    // Lightweight client-side search for the recent assets table.
     const normalized = searchTerm.trim().toLowerCase();
     if (!normalized) {
       return recentAssets;
@@ -135,7 +138,7 @@ export default function DashboardPage() {
     ),
   }));
 
-  const viewerRows = filteredAssets.map((asset) => ({
+  const TechnicianRows = filteredAssets.map((asset) => ({
     asset: asset.asset_id,
     type: asset.device_type,
     status: asset.lifecycle_status,
@@ -146,7 +149,7 @@ export default function DashboardPage() {
     return (
       <div className="space-y-6">
         <section className="rounded-3xl border border-app-warning/25 bg-white/88 p-6 shadow-sm shadow-black/5">
-          <p className="text-[10px] uppercase tracking-[0.3em] text-black/40">Viewer</p>
+          <p className="text-[10px] uppercase tracking-[0.3em] text-black/40">Technician</p>
           <h1 className="mt-2 text-2xl font-semibold text-app-text">System Data</h1>
           <p className="mt-1 text-sm text-black/55">Read-only hardware lifecycle overview.</p>
         </section>
@@ -180,7 +183,7 @@ export default function DashboardPage() {
               Loading...
             </div>
           ) : null}
-          <DataTable columns={viewerColumns} rows={viewerRows} />
+          <DataTable columns={TechnicianColumns} rows={TechnicianRows} />
         </section>
       </div>
     );
@@ -219,7 +222,7 @@ export default function DashboardPage() {
             </Link>
           ) : (
             <span className="rounded-lg border border-app-warning/30 bg-app-warning/10 px-4 py-2 text-sm font-semibold text-app-warning">
-              Viewer
+              Technician
             </span>
           )}
         </div>
@@ -272,5 +275,6 @@ export default function DashboardPage() {
     </div>
   );
 }
+
 
 

@@ -10,11 +10,13 @@ type AuthGateProps = {
 
 export default function AuthGate({ children }: AuthGateProps) {
   const router = useRouter();
+  // Avoid rendering protected pages until auth state is confirmed.
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
 
+    // Initial session check for hard refreshes or direct URL access.
     const checkSession = async () => {
       const { data, error } = await supabase.auth.getSession();
 
@@ -30,6 +32,7 @@ export default function AuthGate({ children }: AuthGateProps) {
       setReady(true);
     };
 
+    // Keep UI auth state in sync after sign-in/sign-out events.
     const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "SIGNED_OUT") {
         router.replace("/login");
@@ -45,6 +48,7 @@ export default function AuthGate({ children }: AuthGateProps) {
 
     return () => {
       isMounted = false;
+      // Prevent memory leaks by cleaning up the subscription.
       listener.subscription.unsubscribe();
     };
   }, [router]);
@@ -59,3 +63,4 @@ export default function AuthGate({ children }: AuthGateProps) {
 
   return <>{children}</>;
 }
+
