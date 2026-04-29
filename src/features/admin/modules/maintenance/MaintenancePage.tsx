@@ -35,9 +35,21 @@ const columns = [
 
 const TechnicianColumns = columns.filter((column) => column.key !== "actions");
 
+type Technician = {
+  id: string;
+  name: string;
+};
+
+type ActiveLog = {
+  technician_name: string | null;
+  maintenance_status: string;
+};
+
 export default function MaintenancePage() {
   // State buckets: lookup data, records, form editing, filters, and import/export status.
   const [hardwareOptions, setHardwareOptions] = useState<HardwareOption[]>([]);
+  const [technicianOptions, setTechnicianOptions] = useState<Technician[]>([]);
+  const [activeLogCounts, setActiveLogCounts] = useState<Record<string, number>>({});
   const [logs, setLogs] = useState<MaintenanceLog[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -85,12 +97,21 @@ export default function MaintenancePage() {
   useEffect(() => {
     let isMounted = true;
 
-    // Load supporting hardware map and maintenance rows in parallel.
+    // Load supporting hardware map, technicians list, and maintenance rows in parallel.
     const loadInitialData = async () => {
-      const [hardwareResult, logsResult] = await Promise.all([
-        fetchHardwareOptions(),
-        fetchLogs(),
-      ]);
+      const [hardwareResult, logsResult, techResult, activeLogsResult] =
+        await Promise.all([
+          fetchHardwareOptions(),
+          fetchLogs(),
+          supabase
+            .from("technicians")
+            .select("id, name")
+            .order("name", { ascending: true }),
+          supabase
+            .from("maintenance_logs")
+            .select("technician_name, maintenance_status")
+            .in("maintenance_status", ["Open", "In Progress"]),
+        ]);
 
       if (!isMounted) {
         return;
@@ -106,6 +127,21 @@ export default function MaintenancePage() {
         setErrorMessage(logsResult.error.message);
       } else {
         setLogs(logsResult.data ?? []);
+      }
+
+      if (techResult.data) {
+        setTechnicianOptions(techResult.data);
+      }
+
+      if (activeLogsResult.data) {
+        const counts: Record<string, number> = {};
+        (activeLogsResult.data as ActiveLog[]).forEach((log) => {
+          if (log.technician_name) {
+            counts[log.technician_name] =
+              (counts[log.technician_name] ?? 0) + 1;
+          }
+        });
+        setActiveLogCounts(counts);
       }
     };
 
@@ -675,16 +711,26 @@ export default function MaintenancePage() {
         </div>
         <div className="grid gap-2">
           <label className="text-xs uppercase tracking-[0.2em] text-black/40">
-            Technician Name
+            Assign Technician
           </label>
-          <input
+          <select
             className="rounded-lg border border-black/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-app-primary/15"
-            type="text"
             value={formValues.technician_name}
             onChange={(event) =>
               handleChange("technician_name", event.target.value)
             }
-          />
+          >
+            <option value="">Unassigned</option>
+            {technicianOptions.map((tech) => {
+              const jobs = activeLogCounts[tech.name] ?? 0;
+              return (
+                <option key={tech.id} value={tech.name}>
+                  {tech.name}
+                  {jobs > 0 ? ` (${jobs} active job${jobs > 1 ? "s" : ""})` : " · Available"}
+                </option>
+              );
+            })}
+          </select>
         </div>
         <div className="grid gap-2">
           <label className="text-xs uppercase tracking-[0.2em] text-black/40">

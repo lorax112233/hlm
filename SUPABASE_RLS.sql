@@ -318,3 +318,36 @@ for delete
 to authenticated
 using (public.is_admin());
 
+-- =========================
+-- Technicians roster table
+-- =========================
+-- Stores registered technician accounts so the admin can assign jobs
+-- and check availability. The `name` field must match the technician's
+-- full_name in their Supabase auth user_metadata — that is the link
+-- between this table and the maintenance_logs.technician_name column.
+
+create table if not exists public.technicians (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  email text not null unique,
+  created_at timestamptz not null default now()
+);
+
+alter table public.technicians enable row level security;
+
+-- Admins can do everything
+create policy technicians_admin_all
+on public.technicians
+for all
+to authenticated
+using (public.is_admin())
+with check (public.is_admin());
+
+-- All authenticated users can read the roster (technicians need this
+-- to see the full roster; the maintenance dropdown uses it too)
+create policy technicians_read_authenticated
+on public.technicians
+for select
+to authenticated
+using (true);
+

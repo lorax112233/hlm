@@ -8,6 +8,7 @@ import {
   ShieldExclamationIcon,
   Squares2X2Icon,
   UserCircleIcon,
+  UsersIcon,
   WrenchScrewdriverIcon,
 } from "@heroicons/react/24/outline";
 import { supabase } from "@/lib/supabaseClient";
@@ -17,6 +18,7 @@ const adminNavItems = [
   { name: "Hardware", href: "/hardware", icon: CpuChipIcon },
   { name: "Maintenance", href: "/maintenance", icon: WrenchScrewdriverIcon },
   { name: "Warranty", href: "/warranty", icon: ShieldExclamationIcon },
+  { name: "Technicians", href: "/technicians", icon: UsersIcon },
   { name: "Profile", href: "/profile", icon: UserCircleIcon },
 ];
 
