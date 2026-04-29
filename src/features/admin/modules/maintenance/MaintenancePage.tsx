@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import DataTable from "@/components/ui/DataTable";
+import StatusBadge from "@/components/ui/StatusBadge";
 import { supabase } from "@/lib/supabaseClient";
 import { parseCsv, toCsv } from "@/lib/csv";
 import {
@@ -438,7 +439,7 @@ export default function MaintenancePage() {
     asset: hardwareLabel(log.hardware_id),
     issue: log.issue_description,
     technician: log.technician_name ?? "-",
-    status: log.maintenance_status,
+    status: <StatusBadge status={log.maintenance_status} />,
     actions: (
       <div className="flex items-center gap-3">
         {isAdmin ? (

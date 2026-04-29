@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import DataTable from "@/components/ui/DataTable";
+import StatusBadge from "@/components/ui/StatusBadge";
 import { supabase } from "@/lib/supabaseClient";
 
 type WarrantyAsset = {
@@ -66,7 +67,8 @@ export default function WarrantyPage() {
           asset: asset.asset_id,
           expiry: "-",
           days: "-",
-          status: "Unknown",
+          status: <StatusBadge status="Unknown" />,
+          _statusStr: "Unknown",
         };
       }
 
@@ -85,13 +87,14 @@ export default function WarrantyPage() {
         asset: `${asset.asset_id} - ${asset.device_name}`,
         expiry: asset.warranty_expiry,
         days: status === "Expired" ? "Expired" : `${diffDays}`,
-        status,
+        status: <StatusBadge status={status} />,
+        _statusStr: status,
       };
     });
 
-    const expired = mappedRows.filter((row) => row.status === "Expired").length;
+    const expired = mappedRows.filter((row) => row._statusStr === "Expired").length;
     const expiringSoon = mappedRows.filter(
-      (row) => row.status === "Expiring Soon",
+      (row) => row._statusStr === "Expiring Soon",
     ).length;
 
     return {
@@ -106,13 +109,13 @@ export default function WarrantyPage() {
     const normalized = searchTerm.trim().toLowerCase();
 
     return rows.filter((row) => {
-      const matchesStatus = statusFilter === "All" || row.status === statusFilter;
+      const matchesStatus = statusFilter === "All" || row._statusStr === statusFilter;
 
       if (!normalized) {
         return matchesStatus;
       }
 
-      const haystack = [row.asset, row.expiry ?? "", row.status]
+      const haystack = [row.asset, row.expiry ?? "", row._statusStr]
         .join(" ")
         .toLowerCase();
 

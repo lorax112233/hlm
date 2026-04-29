@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import DashboardCard from "@/components/ui/DashboardCard";
 import DataTable from "@/components/ui/DataTable";
+import StatusBadge from "@/components/ui/StatusBadge";
 import { supabase } from "@/lib/supabaseClient";
 
 type RecentAsset = {
@@ -22,10 +23,7 @@ const columns = [
   { key: "actions", label: "Actions" },
 ];
 
-const TechnicianColumns = columns.filter((column) => column.key !== "actions");
-
 export default function DashboardPage() {
-  // Dashboard state: metrics, recent records, filters, and error/loading flags.
   const [searchTerm, setSearchTerm] = useState("");
   const [totalAssets, setTotalAssets] = useState(0);
   const [activeAssets, setActiveAssets] = useState(0);
@@ -34,7 +32,6 @@ export default function DashboardPage() {
   const [recentAssets, setRecentAssets] = useState<RecentAsset[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const isAdmin = true;
 
   useEffect(() => {
     let isMounted = true;
@@ -126,7 +123,7 @@ export default function DashboardPage() {
   const rows = filteredAssets.map((asset) => ({
     asset: asset.asset_id,
     type: asset.device_type,
-    status: asset.lifecycle_status,
+    status: <StatusBadge status={asset.lifecycle_status} />,
     warranty: asset.warranty_expiry ?? "-",
     actions: (
       <Link
@@ -137,57 +134,6 @@ export default function DashboardPage() {
       </Link>
     ),
   }));
-
-  const TechnicianRows = filteredAssets.map((asset) => ({
-    asset: asset.asset_id,
-    type: asset.device_type,
-    status: asset.lifecycle_status,
-    warranty: asset.warranty_expiry ?? "-",
-  }));
-
-  if (!isAdmin) {
-    return (
-      <div className="space-y-6">
-        <section className="rounded-3xl border border-app-warning/25 bg-white/88 p-6 shadow-sm shadow-black/5">
-          <p className="text-[10px] uppercase tracking-[0.3em] text-black/40">Technician</p>
-          <h1 className="mt-2 text-2xl font-semibold text-app-text">System Data</h1>
-          <p className="mt-1 text-sm text-black/55">Read-only hardware lifecycle overview.</p>
-        </section>
-
-        {errorMessage ? (
-          <p className="rounded-lg bg-app-danger/10 px-3 py-2 text-xs text-app-danger">
-            {errorMessage}
-          </p>
-        ) : null}
-
-        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <DashboardCard title="Total Assets" value={totalAssets} />
-          <DashboardCard title="Active" value={activeAssets} />
-          <DashboardCard title="Maintenance" value={maintenanceAssets} />
-          <DashboardCard title="Expired" value={expiredWarranties} />
-        </section>
-
-        <section className="space-y-4 rounded-3xl border border-black/8 bg-white/88 p-5 shadow-sm shadow-black/5">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <h3 className="text-lg font-semibold text-app-text">Recent Assets</h3>
-            <input
-              className="app-input rounded-xl px-3 py-2 text-sm"
-              placeholder="Search assets"
-              type="search"
-              value={searchTerm}
-              onChange={(event) => setSearchTerm(event.target.value)}
-            />
-          </div>
-          {isLoading ? (
-            <div className="rounded-2xl border border-dashed border-black/10 bg-white/60 p-6 text-sm text-black/60">
-              Loading...
-            </div>
-          ) : null}
-          <DataTable columns={TechnicianColumns} rows={TechnicianRows} />
-        </section>
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-6">
@@ -200,9 +146,7 @@ export default function DashboardPage() {
           <div>
             <h1 className="text-2xl font-semibold text-app-text">Hardware</h1>
             <p className="mt-1 text-sm text-black/50">
-              {isAdmin
-                ? "Assets, maintenance, and warranty status."
-                : "Read-only asset, maintenance, and warranty status."}
+              Assets, maintenance, and warranty status.
             </p>
             <div className="mt-3 flex flex-wrap gap-2">
               <span className="rounded-full border border-app-primary/25 bg-app-primary/10 px-3 py-1 text-[11px] font-semibold text-app-primary">
@@ -213,18 +157,12 @@ export default function DashboardPage() {
               </span>
             </div>
           </div>
-          {isAdmin ? (
-            <Link
-              href="/hardware"
-              className="rounded-lg bg-app-primary px-4 py-2 text-sm font-semibold text-white shadow-sm shadow-app-primary/25 transition hover:bg-app-primary/90"
-            >
-              Manage Hardware
-            </Link>
-          ) : (
-            <span className="rounded-lg border border-app-warning/30 bg-app-warning/10 px-4 py-2 text-sm font-semibold text-app-warning">
-              Technician
-            </span>
-          )}
+          <Link
+            href="/hardware"
+            className="rounded-lg bg-app-primary px-4 py-2 text-sm font-semibold text-white shadow-sm shadow-app-primary/25 transition hover:bg-app-primary/90"
+          >
+            Manage Hardware
+          </Link>
         </div>
       </section>
 

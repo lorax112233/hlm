@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import DataTable from "@/components/ui/DataTable";
+import StatusBadge from "@/components/ui/StatusBadge";
 import { supabase } from "@/lib/supabaseClient";
 
 type HardwareAsset = {
@@ -152,7 +153,7 @@ export default function HardwareDetailPage() {
         date: formatDate(log.maintenance_date),
         issue: log.issue_description,
         technician: log.technician_name ?? "-",
-        status: log.maintenance_status,
+        status: <StatusBadge status={log.maintenance_status} />,
         action: log.action_taken ?? "-",
       })),
     [maintenanceLogs],
@@ -197,23 +198,27 @@ export default function HardwareDetailPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <p className="text-xs uppercase tracking-[0.2em] text-black/40">Asset</p>
-          <h2 className="text-2xl font-semibold text-app-text">
-            {asset.asset_id} - {asset.device_name}
-          </h2>
-          <p className="mt-1 text-sm text-black/50">
-            {asset.device_type} · {asset.lifecycle_status}
-          </p>
+      <section className="relative overflow-hidden rounded-3xl border border-black/5 bg-white/90 p-6 shadow-sm shadow-black/5">
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-app-primary/70" />
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="text-[10px] uppercase tracking-[0.3em] text-black/40">Asset Detail</p>
+            <h2 className="mt-2 text-2xl font-semibold text-app-text">
+              {asset.asset_id} — {asset.device_name}
+            </h2>
+            <p className="mt-1 text-sm text-black/50">{asset.device_type}</p>
+            <div className="mt-3">
+              <StatusBadge status={asset.lifecycle_status} />
+            </div>
+          </div>
+          <Link
+            href="/hardware"
+            className="rounded-lg border border-black/10 bg-white px-4 py-2 text-sm font-semibold text-black/60 transition hover:bg-black/[0.03]"
+          >
+            ← Back
+          </Link>
         </div>
-        <Link
-          href="/hardware"
-          className="rounded-lg border border-black/10 bg-white px-4 py-2 text-sm font-semibold text-black/60"
-        >
-          Back to Hardware
-        </Link>
-      </div>
+      </section>
 
       <section className="grid gap-4 rounded-2xl border border-black/5 bg-white p-6 shadow-sm md:grid-cols-2">
         <div>

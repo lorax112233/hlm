@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import DataTable from "@/components/ui/DataTable";
+import StatusBadge from "@/components/ui/StatusBadge";
 import { supabase } from "@/lib/supabaseClient";
 
 type MaintenanceLog = {
@@ -160,7 +161,7 @@ export default function DashboardPage() {
     asset: hardwareLookup.get(log.hardware_id) ?? "Unknown",
     issue: log.issue_description,
     date: log.maintenance_date,
-    status: log.maintenance_status,
+    status: <StatusBadge status={log.maintenance_status} />,
     action: (
       <div className="flex items-center gap-2">
         {log.maintenance_status === "Open" ? (

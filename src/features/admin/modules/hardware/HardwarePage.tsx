@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import DataTable from "@/components/ui/DataTable";
 import HardwareForm from "@/components/forms/HardwareForm";
+import StatusBadge from "@/components/ui/StatusBadge";
 import { supabase } from "@/lib/supabaseClient";
 import { parseCsv, toCsv } from "@/lib/csv";
 import {
@@ -400,7 +401,7 @@ export default function HardwarePage() {
     asset: asset.asset_id,
     name: asset.device_name,
     type: asset.device_type,
-    status: asset.lifecycle_status,
+    status: <StatusBadge status={asset.lifecycle_status} />,
     owner: asset.assigned_to ?? "-",
     actions: (
       <div className="flex items-center gap-3">

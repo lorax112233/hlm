@@ -85,7 +85,7 @@ export default function LoginPage() {
           </button>
         </form>
         <div className="mt-5 rounded-xl border border-black/5 bg-app-primary/5 px-4 py-3 text-xs text-black/60">
-          Use your account.
+          Hardware Lifecycle Management System — use your assigned credentials to sign in.
         </div>
       </div>
     </div>

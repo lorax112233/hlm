@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import DataTable from "@/components/ui/DataTable";
+import StatusBadge from "@/components/ui/StatusBadge";
 import { supabase } from "@/lib/supabaseClient";
 
 type HardwareAsset = {
@@ -87,7 +88,7 @@ export default function HardwarePage() {
     asset: asset.asset_id,
     name: asset.device_name,
     type: asset.device_type,
-    status: asset.lifecycle_status,
+    status: <StatusBadge status={asset.lifecycle_status} />,
     owner: asset.assigned_to ?? "-",
     actions: (
       <div className="flex items-center gap-2">

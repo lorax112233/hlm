@@ -10,6 +10,7 @@ const navTitles = [
   { href: "/hardware", label: "Hardware" },
   { href: "/maintenance", label: "Maintenance" },
   { href: "/warranty", label: "Warranty" },
+  { href: "/technicians", label: "Technicians" },
   { href: "/profile", label: "Profile" },
 ];
 
