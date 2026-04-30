@@ -5,11 +5,6 @@ import DataTable from "@/components/ui/DataTable";
 import StatusBadge from "@/components/ui/StatusBadge";
 import { supabase } from "@/lib/supabaseClient";
 import { parseCsv, toCsv } from "@/lib/csv";
-import {
-  canDeleteMaintenance,
-  canManageMaintenance,
-} from "@/lib/roles";
-
 type HardwareOption = {
   id: string;
   asset_id: string;
@@ -34,8 +29,6 @@ const columns = [
   { key: "actions", label: "Actions" },
 ];
 
-const TechnicianColumns = columns.filter((column) => column.key !== "actions");
-
 type Technician = {
   id: string;
   name: string;
@@ -59,8 +52,6 @@ export default function MaintenancePage() {
   const [importMessage, setImportMessage] = useState<string | null>(null);
   const [isImporting, setIsImporting] = useState(false);
   const [editingLog, setEditingLog] = useState<MaintenanceLog | null>(null);
-  const role: "admin" | "technician" = "admin";
-  const isAdmin = true;
   const [formValues, setFormValues] = useState({
     hardware_id: "",
     maintenance_date: "",
@@ -171,13 +162,6 @@ export default function MaintenancePage() {
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-
-    // Permission guard in UI; RLS remains the final security check.
-    if (!canManageMaintenance(role)) {
-      setErrorMessage("Only Admin users can create or update maintenance logs.");
-      return;
-    }
-
     setIsLoading(true);
     setErrorMessage(null);
 
@@ -203,17 +187,31 @@ export default function MaintenancePage() {
       return;
     }
 
+    if (payload.maintenance_status !== "Resolved") {
+      await supabase
+        .from("hardware_assets")
+        .update({ lifecycle_status: "Under Maintenance" })
+        .eq("id", payload.hardware_id);
+    } else {
+      const { count } = await supabase
+        .from("maintenance_logs")
+        .select("id", { count: "exact", head: true })
+        .eq("hardware_id", payload.hardware_id)
+        .in("maintenance_status", ["Open", "In Progress"]);
+      if ((count ?? 0) === 0) {
+        await supabase
+          .from("hardware_assets")
+          .update({ lifecycle_status: "Active" })
+          .eq("id", payload.hardware_id);
+      }
+    }
+
     resetForm();
     await loadLogs();
     setIsLoading(false);
   };
 
   const handleEdit = (log: MaintenanceLog) => {
-    if (!canManageMaintenance(role)) {
-      setErrorMessage("Only Admin users can edit maintenance logs.");
-      return;
-    }
-
     setEditingLog(log);
     setFormValues({
       hardware_id: log.hardware_id,
@@ -226,27 +224,33 @@ export default function MaintenancePage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!canDeleteMaintenance(role)) {
-      setErrorMessage("Only Admin users can delete maintenance logs.");
-      return;
-    }
-
     setErrorMessage(null);
+    const logToDelete = logs.find((l) => l.id === id);
     const { error } = await supabase
       .from("maintenance_logs")
       .delete()
       .eq("id", id);
 
     if (error) {
-      setErrorMessage(
-        error.code === "42501"
-          ? "You do not have permission to delete this maintenance log."
-          : error.message,
-      );
+      setErrorMessage(error.message);
       return;
     }
 
     setLogs((prev) => prev.filter((log) => log.id !== id));
+
+    if (logToDelete) {
+      const { count } = await supabase
+        .from("maintenance_logs")
+        .select("id", { count: "exact", head: true })
+        .eq("hardware_id", logToDelete.hardware_id)
+        .in("maintenance_status", ["Open", "In Progress"]);
+      if ((count ?? 0) === 0) {
+        await supabase
+          .from("hardware_assets")
+          .update({ lifecycle_status: "Active" })
+          .eq("id", logToDelete.hardware_id);
+      }
+    }
   };
 
   const hardwareLookup = useMemo(
@@ -442,35 +446,22 @@ export default function MaintenancePage() {
     status: <StatusBadge status={log.maintenance_status} />,
     actions: (
       <div className="flex items-center gap-3">
-        {isAdmin ? (
-          <>
-            <button
-              className="text-xs font-semibold text-app-primary"
-              type="button"
-              onClick={() => handleEdit(log)}
-            >
-              Edit
-            </button>
-            <button
-              className="text-xs font-semibold text-app-danger"
-              type="button"
-              onClick={() => handleDelete(log.id)}
-            >
-              Delete
-            </button>
-          </>
-        ) : (
-          <span className="text-xs text-black/35">View only</span>
-        )}
+        <button
+          className="text-xs font-semibold text-app-primary"
+          type="button"
+          onClick={() => handleEdit(log)}
+        >
+          Edit
+        </button>
+        <button
+          className="text-xs font-semibold text-app-danger"
+          type="button"
+          onClick={() => handleDelete(log.id)}
+        >
+          Delete
+        </button>
       </div>
     ),
-  }));
-
-  const TechnicianRows = filteredLogs.map((log) => ({
-    asset: hardwareLabel(log.hardware_id),
-    issue: log.issue_description,
-    technician: log.technician_name ?? "-",
-    status: log.maintenance_status,
   }));
 
   const emptyMessage =
@@ -478,94 +469,17 @@ export default function MaintenancePage() {
       ? "No maintenance logs yet. Create a work order to get started."
       : "No maintenance logs match the current filters.";
 
-  if (!isAdmin) {
-    return (
-      <div className="space-y-6">
-        <section className="rounded-3xl border border-app-warning/25 bg-white/88 p-6 shadow-sm shadow-black/5">
-          <p className="text-[10px] uppercase tracking-[0.3em] text-black/40">Technician</p>
-          <h3 className="mt-2 text-xl font-semibold text-app-text">Maintenance Data</h3>
-          <p className="mt-1 text-sm text-black/55">Read-only maintenance logs and status.</p>
-        </section>
-
-        <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <div className="rounded-2xl border border-black/8 bg-white/88 px-4 py-3 shadow-sm shadow-black/5">
-            <p className="text-[10px] uppercase tracking-[0.25em] text-black/40">Total</p>
-            <p className="mt-1 text-2xl font-semibold text-app-text">{maintenanceStats.total}</p>
-          </div>
-          <div className="rounded-2xl border border-black/8 bg-white/88 px-4 py-3 shadow-sm shadow-black/5">
-            <p className="text-[10px] uppercase tracking-[0.25em] text-black/40">Open</p>
-            <p className="mt-1 text-2xl font-semibold text-app-danger">{maintenanceStats.open}</p>
-          </div>
-          <div className="rounded-2xl border border-black/8 bg-white/88 px-4 py-3 shadow-sm shadow-black/5">
-            <p className="text-[10px] uppercase tracking-[0.25em] text-black/40">In Progress</p>
-            <p className="mt-1 text-2xl font-semibold text-app-warning">{maintenanceStats.inProgress}</p>
-          </div>
-          <div className="rounded-2xl border border-black/8 bg-white/88 px-4 py-3 shadow-sm shadow-black/5">
-            <p className="text-[10px] uppercase tracking-[0.25em] text-black/40">Resolved</p>
-            <p className="mt-1 text-2xl font-semibold text-app-primary">{maintenanceStats.resolved}</p>
-          </div>
-        </section>
-
-        <section className="space-y-4 rounded-3xl border border-black/8 bg-white/88 p-5 shadow-sm shadow-black/5">
-          <div className="flex flex-wrap items-center gap-3">
-            <input
-              className="app-input rounded-xl px-3 py-2 text-sm"
-              placeholder="Search logs"
-              type="search"
-              value={searchTerm}
-              onChange={(event) => setSearchTerm(event.target.value)}
-            />
-            <select
-              className="app-input rounded-xl px-3 py-2 text-sm"
-              value={statusFilter}
-              onChange={(event) => setStatusFilter(event.target.value)}
-            >
-              <option value="All">All statuses</option>
-              <option value="Open">Open</option>
-              <option value="In Progress">In Progress</option>
-              <option value="Resolved">Resolved</option>
-            </select>
-          </div>
-          {errorMessage ? (
-            <p className="rounded-lg bg-app-danger/10 px-3 py-2 text-xs text-app-danger">
-              {errorMessage}
-            </p>
-          ) : null}
-          {TechnicianRows.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-black/10 bg-white/60 p-6 text-sm text-black/60">
-              {emptyMessage}
-            </div>
-          ) : null}
-          <DataTable columns={TechnicianColumns} rows={TechnicianRows} />
-        </section>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6">
       <section className="rounded-3xl border border-black/5 bg-white/90 p-6 shadow-sm shadow-black/5">
         <p className="text-[10px] uppercase tracking-[0.3em] text-black/40">
           Maintenance
         </p>
-        <div className="mt-3 flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <h3 className="text-xl font-semibold text-app-text">Work Orders</h3>
-            <p className="mt-1 text-sm text-black/50">
-              {isAdmin
-                ? "Create, update, and resolve service tickets."
-                : "Read-only work order history and status."}
-            </p>
-          </div>
-          <span
-            className={`rounded-lg px-4 py-2 text-xs font-semibold uppercase tracking-[0.15em] ${
-              isAdmin
-                ? "border border-app-primary/20 bg-app-primary/10 text-app-primary"
-                : "border border-app-warning/30 bg-app-warning/10 text-app-warning"
-            }`}
-          >
-            {isAdmin ? "Admin Access" : "Technician Access"}
-          </span>
+        <div className="mt-3">
+          <h3 className="text-xl font-semibold text-app-text">Work Orders</h3>
+          <p className="mt-1 text-sm text-black/50">
+            Create, update, and resolve service tickets.
+          </p>
         </div>
         <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <div className="rounded-2xl border border-black/5 bg-white px-4 py-3">
@@ -620,16 +534,14 @@ export default function MaintenancePage() {
           >
             Export CSV
           </button>
-          <label className="rounded-lg border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-black/60">
-            {isAdmin ? (
-              <input
-                accept=".csv"
-                className="hidden"
-                type="file"
-                onChange={handleImport}
-              />
-            ) : null}
-            {isAdmin ? (isImporting ? "Importing..." : "Import CSV") : "Read only"}
+          <label className="cursor-pointer rounded-lg border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-black/60">
+            <input
+              accept=".csv"
+              className="hidden"
+              type="file"
+              onChange={handleImport}
+            />
+            {isImporting ? "Importing..." : "Import CSV"}
           </label>
         </div>
         {importMessage ? (
@@ -642,11 +554,6 @@ export default function MaintenancePage() {
             {errorMessage}
           </p>
         ) : null}
-        {!canManageMaintenance(role) ? (
-          <div className="rounded-2xl border border-dashed border-black/10 bg-white/60 p-6 text-sm text-black/60">
-            This module is read-only for your account.
-          </div>
-        ) : (
           <form
             className="grid gap-4 rounded-2xl border border-black/5 bg-white p-6 shadow-sm md:grid-cols-2"
             onSubmit={handleSubmit}
@@ -774,7 +681,6 @@ export default function MaintenancePage() {
           </div>
         </div>
           </form>
-        )}
         {rows.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-black/10 bg-white/60 p-6 text-sm text-black/60">
             {emptyMessage}

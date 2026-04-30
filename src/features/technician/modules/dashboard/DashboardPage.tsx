@@ -114,10 +114,33 @@ export default function DashboardPage() {
 
   const handleStatusUpdate = async (logId: string, newStatus: string) => {
     setUpdatingId(logId);
+    const log = allLogs.find((l) => l.id === logId);
     await supabase
       .from("maintenance_logs")
       .update({ maintenance_status: newStatus })
       .eq("id", logId);
+
+    if (log) {
+      if (newStatus === "Resolved") {
+        const { count } = await supabase
+          .from("maintenance_logs")
+          .select("id", { count: "exact", head: true })
+          .eq("hardware_id", log.hardware_id)
+          .in("maintenance_status", ["Open", "In Progress"]);
+        if ((count ?? 0) === 0) {
+          await supabase
+            .from("hardware_assets")
+            .update({ lifecycle_status: "Active" })
+            .eq("id", log.hardware_id);
+        }
+      } else {
+        await supabase
+          .from("hardware_assets")
+          .update({ lifecycle_status: "Under Maintenance" })
+          .eq("id", log.hardware_id);
+      }
+    }
+
     await loadActiveLogs(currentUserName);
     setUpdatingId(null);
   };
