@@ -21,7 +21,6 @@ type HardwareAsset = {
   serial_number: string | null;
   purchase_date: string | null;
   warranty_expiry: string | null;
-  assigned_to: string | null;
 };
 
 const columns = [
@@ -29,11 +28,8 @@ const columns = [
   { key: "name", label: "Device" },
   { key: "type", label: "Type" },
   { key: "status", label: "Status" },
-  { key: "owner", label: "Assigned" },
   { key: "actions", label: "Actions" },
 ];
-
-const TechnicianColumns = columns.filter((column) => column.key !== "actions");
 
 export default function HardwarePage() {
   // Local UI state for table data, forms, filters, and import/export feedback.
@@ -53,7 +49,7 @@ export default function HardwarePage() {
     supabase
       .from("hardware_assets")
       .select(
-        "id, asset_id, device_name, device_type, lifecycle_status, serial_number, purchase_date, warranty_expiry, assigned_to",
+        "id, asset_id, device_name, device_type, lifecycle_status, serial_number, purchase_date, warranty_expiry",
       )
       .order("created_at", { ascending: false });
 
@@ -120,7 +116,6 @@ export default function HardwarePage() {
     lifecycle_status: string;
     purchase_date: string;
     warranty_expiry: string;
-    assigned_to: string;
   }) => {
     // UI permission guard complements RLS (database still enforces final authorization).
     if (!canManageHardware(role)) {
@@ -143,7 +138,6 @@ export default function HardwarePage() {
         lifecycle_status: values.lifecycle_status,
         purchase_date: values.purchase_date || null,
         warranty_expiry: values.warranty_expiry || null,
-        assigned_to: values.assigned_to.trim() || null,
       })
       .select("id, lifecycle_status")
       .single();
@@ -179,7 +173,6 @@ export default function HardwarePage() {
     lifecycle_status: string;
     purchase_date: string;
     warranty_expiry: string;
-    assigned_to: string;
   }) => {
     if (!canManageHardware(role)) {
       setErrorMessage("Only Admin users can update hardware assets.");
@@ -203,7 +196,6 @@ export default function HardwarePage() {
         lifecycle_status: values.lifecycle_status,
         purchase_date: values.purchase_date || null,
         warranty_expiry: values.warranty_expiry || null,
-        assigned_to: values.assigned_to || null,
       })
       .eq("id", editingAsset.id);
 
@@ -259,7 +251,6 @@ export default function HardwarePage() {
     "serial_number",
     "purchase_date",
     "warranty_expiry",
-    "assigned_to",
   ];
 
   const handleExport = () => {
@@ -272,7 +263,6 @@ export default function HardwarePage() {
       serial_number: asset.serial_number ?? "",
       purchase_date: asset.purchase_date ?? "",
       warranty_expiry: asset.warranty_expiry ?? "",
-      assigned_to: asset.assigned_to ?? "",
     }));
 
     const csv = toCsv(hardwareHeaders, rowsToExport);
@@ -332,7 +322,6 @@ export default function HardwarePage() {
           serial_number: getValue(row, "serial_number") || null,
           purchase_date: getValue(row, "purchase_date") || null,
           warranty_expiry: getValue(row, "warranty_expiry") || null,
-          assigned_to: getValue(row, "assigned_to") || null,
         });
 
         return acc;
@@ -376,7 +365,6 @@ export default function HardwarePage() {
         asset.device_name,
         asset.device_type,
         asset.lifecycle_status,
-        asset.assigned_to ?? "",
       ]
         .join(" ")
         .toLowerCase();
@@ -402,7 +390,6 @@ export default function HardwarePage() {
     name: asset.device_name,
     type: asset.device_type,
     status: <StatusBadge status={asset.lifecycle_status} />,
-    owner: asset.assigned_to ?? "-",
     actions: (
       <div className="flex items-center gap-3">
         <Link
@@ -433,84 +420,10 @@ export default function HardwarePage() {
     ),
   }));
 
-  const TechnicianRows = filteredAssets.map((asset) => ({
-    asset: asset.asset_id,
-    name: asset.device_name,
-    type: asset.device_type,
-    status: asset.lifecycle_status,
-    owner: asset.assigned_to ?? "-",
-  }));
-
   const emptyMessage =
     assets.length === 0
       ? "No hardware assets yet. Add your first device using the form."
       : "No assets match the current filters.";
-
-  if (!isAdmin) {
-    return (
-      <div className="space-y-6">
-        <section className="rounded-3xl border border-app-warning/25 bg-white/88 p-6 shadow-sm shadow-black/5">
-          <p className="text-[10px] uppercase tracking-[0.3em] text-black/40">Technician</p>
-          <h3 className="mt-2 text-xl font-semibold text-app-text">Hardware Data</h3>
-          <p className="mt-1 text-sm text-black/55">Read-only asset records and status.</p>
-        </section>
-
-        <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <div className="rounded-2xl border border-black/8 bg-white/88 px-4 py-3 shadow-sm shadow-black/5">
-            <p className="text-[10px] uppercase tracking-[0.25em] text-black/40">Total</p>
-            <p className="mt-1 text-2xl font-semibold text-app-text">{assetStats.total}</p>
-          </div>
-          <div className="rounded-2xl border border-black/8 bg-white/88 px-4 py-3 shadow-sm shadow-black/5">
-            <p className="text-[10px] uppercase tracking-[0.25em] text-black/40">Active</p>
-            <p className="mt-1 text-2xl font-semibold text-app-primary">{assetStats.active}</p>
-          </div>
-          <div className="rounded-2xl border border-black/8 bg-white/88 px-4 py-3 shadow-sm shadow-black/5">
-            <p className="text-[10px] uppercase tracking-[0.25em] text-black/40">Maintenance</p>
-            <p className="mt-1 text-2xl font-semibold text-app-warning">{assetStats.maintenance}</p>
-          </div>
-          <div className="rounded-2xl border border-black/8 bg-white/88 px-4 py-3 shadow-sm shadow-black/5">
-            <p className="text-[10px] uppercase tracking-[0.25em] text-black/40">Retired</p>
-            <p className="mt-1 text-2xl font-semibold text-black/70">{assetStats.retired}</p>
-          </div>
-        </section>
-
-        <section className="space-y-4 rounded-3xl border border-black/8 bg-white/88 p-5 shadow-sm shadow-black/5">
-          <div className="flex flex-wrap items-center gap-3">
-            <input
-              className="app-input rounded-xl px-3 py-2 text-sm"
-              placeholder="Search assets"
-              type="search"
-              value={searchTerm}
-              onChange={(event) => setSearchTerm(event.target.value)}
-            />
-            <select
-              className="app-input rounded-xl px-3 py-2 text-sm"
-              value={statusFilter}
-              onChange={(event) => setStatusFilter(event.target.value)}
-            >
-              <option value="All">All statuses</option>
-              <option value="New">New</option>
-              <option value="Active">Active</option>
-              <option value="Under Maintenance">Under Maintenance</option>
-              <option value="Retired">Retired</option>
-              <option value="Disposed">Disposed</option>
-            </select>
-          </div>
-          {errorMessage ? (
-            <p className="rounded-lg bg-app-danger/10 px-3 py-2 text-xs text-app-danger">
-              {errorMessage}
-            </p>
-          ) : null}
-          {TechnicianRows.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-black/10 bg-white/60 p-6 text-sm text-black/60">
-              {emptyMessage}
-            </div>
-          ) : null}
-          <DataTable columns={TechnicianColumns} rows={TechnicianRows} />
-        </section>
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-6">
@@ -522,16 +435,9 @@ export default function HardwarePage() {
           <div>
             <h3 className="text-xl font-semibold text-app-text">Asset Control</h3>
             <p className="mt-1 text-sm text-black/50">
-              {isAdmin
-                ? "Create, update, import, and export assets."
-                : "Read-only view of asset status."}
+              Create, update, import, and export assets.
             </p>
           </div>
-          {!isAdmin ? (
-            <span className="rounded-lg border border-app-warning/30 bg-app-warning/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.15em] text-app-warning">
-              Technician Mode
-            </span>
-          ) : null}
         </div>
         <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <div className="rounded-2xl border border-black/5 bg-white px-4 py-3">
@@ -553,7 +459,7 @@ export default function HardwarePage() {
         </div>
       </section>
 
-      <div className={isAdmin ? "grid gap-6 xl:grid-cols-[1.4fr_1fr]" : "space-y-4"}>
+      <div className="grid gap-6 xl:grid-cols-[1.4fr_1fr]">
         <div className="space-y-4 rounded-3xl border border-black/5 bg-white/80 p-5 shadow-sm shadow-black/5">
           <div>
             <p className="text-xs uppercase tracking-[0.2em] text-black/40">Hardware</p>
@@ -589,17 +495,15 @@ export default function HardwarePage() {
             >
               Export CSV
             </button>
-            {isAdmin ? (
-              <label className="rounded-lg border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-black/60">
-                <input
-                  accept=".csv"
-                  className="hidden"
-                  type="file"
-                  onChange={handleImport}
-                />
-                {isImporting ? "Importing..." : "Import CSV"}
-              </label>
-            ) : null}
+            <label className="rounded-lg border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-black/60 cursor-pointer">
+              <input
+                accept=".csv"
+                className="hidden"
+                type="file"
+                onChange={handleImport}
+              />
+              {isImporting ? "Importing..." : "Import CSV"}
+            </label>
           </div>
           {importMessage ? (
             <p className="rounded-lg bg-app-primary/10 px-3 py-2 text-xs text-app-primary">
@@ -618,8 +522,7 @@ export default function HardwarePage() {
           ) : null}
           <DataTable columns={columns} rows={rows} />
         </div>
-        {isAdmin ? (
-          <div className="space-y-4 rounded-3xl border border-black/5 bg-white/80 p-5 shadow-sm shadow-black/5 xl:sticky xl:top-6 xl:self-start">
+        <div className="space-y-4 rounded-3xl border border-black/5 bg-white/80 p-5 shadow-sm shadow-black/5 xl:sticky xl:top-6 xl:self-start">
             <div>
               <p className="text-xs uppercase tracking-[0.2em] text-black/40">Add asset</p>
               <h3 className="text-lg font-semibold text-app-text">New Asset</h3>
@@ -643,7 +546,6 @@ export default function HardwarePage() {
                         lifecycle_status: editingAsset.lifecycle_status,
                         purchase_date: editingAsset.purchase_date ?? "",
                         warranty_expiry: editingAsset.warranty_expiry ?? "",
-                        assigned_to: editingAsset.assigned_to ?? "",
                       }
                     : undefined
                 }
@@ -656,7 +558,6 @@ export default function HardwarePage() {
               </div>
             )}
           </div>
-        ) : null}
       </div>
     </div>
   );

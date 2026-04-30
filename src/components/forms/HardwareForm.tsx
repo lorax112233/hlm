@@ -10,7 +10,6 @@ type HardwareFormValues = {
   lifecycle_status: string;
   purchase_date: string;
   warranty_expiry: string;
-  assigned_to: string;
 };
 
 type HardwareFormProps = {
@@ -30,7 +29,6 @@ const defaultValues: HardwareFormValues = {
   lifecycle_status: "Active",
   purchase_date: "",
   warranty_expiry: "",
-  assigned_to: "",
 };
 
 const buildInitialValues = (
@@ -52,10 +50,7 @@ export default function HardwareForm({
     buildInitialValues(initialValues),
   );
 
-  const handleChange = (
-    key: keyof HardwareFormValues,
-    value: string,
-  ) => {
+  const handleChange = (key: keyof HardwareFormValues, value: string) => {
     setValues((prev) => ({ ...prev, [key]: value }));
   };
 
@@ -111,14 +106,16 @@ export default function HardwareForm({
       </div>
       <div className="grid gap-2">
         <label className="text-xs uppercase tracking-[0.2em] text-black/40">
-          Assigned To
+          Serial Number
         </label>
         <input
           className="app-input rounded-xl px-3 py-2.5 text-sm"
-          placeholder="Alex Rivera"
+          placeholder="SN-123456"
           type="text"
-          value={values.assigned_to}
-          onChange={(event) => handleChange("assigned_to", event.target.value)}
+          value={values.serial_number}
+          onChange={(event) =>
+            handleChange("serial_number", event.target.value)
+          }
         />
       </div>
       <div className="grid gap-2">
@@ -140,7 +137,9 @@ export default function HardwareForm({
           className="app-input rounded-xl px-3 py-2.5 text-sm"
           type="date"
           value={values.warranty_expiry}
-          onChange={(event) => handleChange("warranty_expiry", event.target.value)}
+          onChange={(event) =>
+            handleChange("warranty_expiry", event.target.value)
+          }
         />
       </div>
       <div className="grid gap-2">
@@ -161,20 +160,6 @@ export default function HardwareForm({
           <option value="Retired">Retired</option>
           <option value="Disposed">Disposed</option>
         </select>
-      </div>
-      <div className="grid gap-2">
-        <label className="text-xs uppercase tracking-[0.2em] text-black/40">
-          Serial Number
-        </label>
-        <input
-          className="app-input rounded-xl px-3 py-2.5 text-sm"
-          placeholder="SN-123456"
-          type="text"
-          value={values.serial_number}
-          onChange={(event) =>
-            handleChange("serial_number", event.target.value)
-          }
-        />
       </div>
       {errorMessage ? (
         <p className="rounded-lg bg-app-danger/10 px-3 py-2 text-xs text-app-danger md:col-span-2">
@@ -202,4 +187,3 @@ export default function HardwareForm({
     </form>
   );
 }
-

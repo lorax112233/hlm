@@ -198,13 +198,15 @@ drop policy if exists lifecycle_history_update_auth on public.lifecycle_history;
 drop policy if exists lifecycle_history_delete_auth on public.lifecycle_history;
 
 -- Hardware policies
+-- Technicians can read all hardware (read-only view of inventory).
+-- Assignment to jobs happens in maintenance_logs, not on the asset itself.
 create policy hardware_assets_select_auth
 on public.hardware_assets
 for select
 to authenticated
 using (
   public.is_admin()
-  or public.is_assigned_technician(assigned_to)
+  or public.is_technician()
 );
 
 create policy hardware_assets_insert_auth

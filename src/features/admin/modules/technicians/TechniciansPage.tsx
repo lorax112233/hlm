@@ -167,8 +167,11 @@ export default function TechniciansPage() {
             </p>
           </div>
           {rows.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-black/10 bg-white/60 p-6 text-sm text-black/60">
-              No technicians registered yet. Add one using the form.
+            <div className="rounded-2xl border border-dashed border-app-warning/30 bg-app-warning/5 p-6 space-y-2">
+              <p className="text-sm font-semibold text-app-warning">No technicians registered yet.</p>
+              <p className="text-sm text-black/55">
+                Use the form on the right to add each technician by name and email. Their name here must exactly match the <code className="rounded bg-black/5 px-1 font-mono text-xs">full_name</code> in their Supabase account — this is how maintenance jobs are linked to the right person.
+              </p>
             </div>
           ) : (
             <DataTable columns={columns} rows={rows} />

@@ -12,7 +12,6 @@ type HardwareAsset = {
   device_name: string;
   device_type: string;
   lifecycle_status: string;
-  assigned_to: string | null;
   warranty_expiry: string | null;
 };
 
@@ -21,7 +20,6 @@ const columns = [
   { key: "name", label: "Device" },
   { key: "type", label: "Type" },
   { key: "status", label: "Status" },
-  { key: "owner", label: "Assigned" },
   { key: "actions", label: "" },
 ];
 
@@ -38,7 +36,7 @@ export default function HardwarePage() {
       const { data, error } = await supabase
         .from("hardware_assets")
         .select(
-          "id, asset_id, device_name, device_type, lifecycle_status, assigned_to, warranty_expiry",
+          "id, asset_id, device_name, device_type, lifecycle_status, warranty_expiry",
         )
         .order("created_at", { ascending: false });
 
@@ -76,7 +74,6 @@ export default function HardwarePage() {
         asset.device_name,
         asset.device_type,
         asset.lifecycle_status,
-        asset.assigned_to ?? "",
       ]
         .join(" ")
         .toLowerCase();
@@ -89,7 +86,6 @@ export default function HardwarePage() {
     name: asset.device_name,
     type: asset.device_type,
     status: <StatusBadge status={asset.lifecycle_status} />,
-    owner: asset.assigned_to ?? "-",
     actions: (
       <div className="flex items-center gap-2">
         <Link
