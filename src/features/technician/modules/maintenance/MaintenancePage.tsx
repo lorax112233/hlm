@@ -201,10 +201,14 @@ export default function MaintenancePage() {
       setErrorMessage(null);
       setUpdatingId(logId);
 
-      const { error } = await supabase
-        .from("maintenance_logs")
-        .update({ maintenance_status: "Escalated" })
-        .eq("id", logId);
+      const timeout = new Promise<{ error: { message: string } }>((resolve) =>
+        setTimeout(() => resolve({ error: { message: "Update timed out. Your Supabase database may have a trigger blocking Escalated status — check the Supabase dashboard under Database > Functions/Triggers." } }), 8000),
+      );
+
+      const { error } = await Promise.race([
+        supabase.from("maintenance_logs").update({ maintenance_status: "Escalated" }).eq("id", logId),
+        timeout,
+      ]);
 
       if (error) {
         setErrorMessage(error.message);
