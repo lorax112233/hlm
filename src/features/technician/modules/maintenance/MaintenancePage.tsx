@@ -26,6 +26,7 @@ const columns = [
   { key: "issue", label: "Issue" },
   { key: "date", label: "Date" },
   { key: "status", label: "Status" },
+  { key: "action_taken", label: "Action Taken" },
   { key: "actions", label: "Actions" },
 ];
 
@@ -117,23 +118,34 @@ export default function MaintenancePage() {
   }, [logs, searchTerm, statusFilter, hardwareLookup]);
 
   const handleQuickStatus = async (logId: string, newStatus: string) => {
-    setUpdatingId(logId);
     const log = logs.find((l) => l.id === logId);
+    if (!log) return;
+
+    if ((newStatus === "Resolved" || newStatus === "Escalated") && !log.action_taken?.trim()) {
+      setErrorMessage(
+        newStatus === "Resolved"
+          ? "Document what you did under Action Taken before marking this job resolved."
+          : "Document what you tried under Action Taken before escalating to the admin.",
+      );
+      handleOpenNote(log);
+      return;
+    }
+
+    setErrorMessage(null);
+    setUpdatingId(logId);
     await supabase.from("maintenance_logs").update({ maintenance_status: newStatus }).eq("id", logId);
 
-    if (log) {
-      if (newStatus === "Resolved") {
-        const { count } = await supabase
-          .from("maintenance_logs")
-          .select("id", { count: "exact", head: true })
-          .eq("hardware_id", log.hardware_id)
-          .in("maintenance_status", ["Open", "In Progress", "Escalated"]);
-        if ((count ?? 0) === 0) {
-          await supabase.from("hardware_assets").update({ lifecycle_status: "Active" }).eq("id", log.hardware_id);
-        }
-      } else {
-        await supabase.from("hardware_assets").update({ lifecycle_status: "Under Maintenance" }).eq("id", log.hardware_id);
+    if (newStatus === "Resolved") {
+      const { count } = await supabase
+        .from("maintenance_logs")
+        .select("id", { count: "exact", head: true })
+        .eq("hardware_id", log.hardware_id)
+        .in("maintenance_status", ["Open", "In Progress", "Escalated"]);
+      if ((count ?? 0) === 0) {
+        await supabase.from("hardware_assets").update({ lifecycle_status: "Active" }).eq("id", log.hardware_id);
       }
+    } else {
+      await supabase.from("hardware_assets").update({ lifecycle_status: "Under Maintenance" }).eq("id", log.hardware_id);
     }
 
     await loadMyLogs(currentUserId);
@@ -159,6 +171,13 @@ export default function MaintenancePage() {
     issue: log.issue_description,
     date: log.maintenance_date,
     status: <StatusBadge status={log.maintenance_status} />,
+    action_taken: log.action_taken ? (
+      <span className="block max-w-[260px] whitespace-normal break-words text-xs leading-relaxed text-black/70">
+        {log.action_taken}
+      </span>
+    ) : (
+      <span className="text-xs italic text-black/30">Not documented</span>
+    ),
     actions: (
       <div className="flex flex-wrap items-center gap-2">
         {log.maintenance_status === "Open" ? (
@@ -210,7 +229,7 @@ export default function MaintenancePage() {
         <h3 className="mt-2 text-xl font-semibold text-app-text">My Work Orders</h3>
         <p className="mt-1 text-sm text-black/55">
           {currentUserName ? (
-            <>All jobs assigned to <span className="font-medium text-app-text">{currentUserName}</span>. Document your work with notes, resolve when fixed, or use <strong>Can&apos;t Fix</strong> to escalate to the admin.</>
+            <>All jobs assigned to <span className="font-medium text-app-text">{currentUserName}</span>. Add a note documenting your work — required before you can <strong>Resolve</strong> or <strong>Can&apos;t Fix</strong>.</>
           ) : "Loading your work orders..."}
         </p>
       </section>

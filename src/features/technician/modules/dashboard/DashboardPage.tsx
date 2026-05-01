@@ -10,6 +10,7 @@ type MaintenanceLog = {
   hardware_id: string;
   maintenance_date: string;
   issue_description: string;
+  action_taken: string | null;
   technician_id: string | null;
   maintenance_status: string;
 };
@@ -42,7 +43,7 @@ export default function DashboardPage() {
   const loadActiveLogs = async (userId: string) => {
     const { data } = await supabase
       .from("maintenance_logs")
-      .select("id, hardware_id, maintenance_date, issue_description, technician_id, maintenance_status")
+      .select("id, hardware_id, maintenance_date, issue_description, action_taken, technician_id, maintenance_status")
       .eq("technician_id", userId)
       .in("maintenance_status", ["Open", "In Progress"])
       .order("maintenance_date", { ascending: false });
@@ -81,7 +82,7 @@ export default function DashboardPage() {
       if (userId) {
         const myLogsResult = await supabase
           .from("maintenance_logs")
-          .select("id, hardware_id, maintenance_date, issue_description, technician_id, maintenance_status")
+          .select("id, hardware_id, maintenance_date, issue_description, action_taken, technician_id, maintenance_status")
           .eq("technician_id", userId)
           .in("maintenance_status", ["Open", "In Progress"])
           .order("maintenance_date", { ascending: false });
@@ -103,23 +104,33 @@ export default function DashboardPage() {
   );
 
   const handleStatusUpdate = async (logId: string, newStatus: string) => {
-    setUpdatingId(logId);
     const log = allLogs.find((l) => l.id === logId);
+    if (!log) return;
+
+    if ((newStatus === "Resolved" || newStatus === "Escalated") && !log.action_taken?.trim()) {
+      setErrorMessage(
+        newStatus === "Resolved"
+          ? "Open this job in Work Orders and document what you did before marking it resolved."
+          : "Open this job in Work Orders and document what you tried before escalating to the admin.",
+      );
+      return;
+    }
+
+    setErrorMessage(null);
+    setUpdatingId(logId);
     await supabase.from("maintenance_logs").update({ maintenance_status: newStatus }).eq("id", logId);
 
-    if (log) {
-      if (newStatus === "Resolved") {
-        const { count } = await supabase
-          .from("maintenance_logs")
-          .select("id", { count: "exact", head: true })
-          .eq("hardware_id", log.hardware_id)
-          .in("maintenance_status", ["Open", "In Progress", "Escalated"]);
-        if ((count ?? 0) === 0) {
-          await supabase.from("hardware_assets").update({ lifecycle_status: "Active" }).eq("id", log.hardware_id);
-        }
-      } else {
-        await supabase.from("hardware_assets").update({ lifecycle_status: "Under Maintenance" }).eq("id", log.hardware_id);
+    if (newStatus === "Resolved") {
+      const { count } = await supabase
+        .from("maintenance_logs")
+        .select("id", { count: "exact", head: true })
+        .eq("hardware_id", log.hardware_id)
+        .in("maintenance_status", ["Open", "In Progress", "Escalated"]);
+      if ((count ?? 0) === 0) {
+        await supabase.from("hardware_assets").update({ lifecycle_status: "Active" }).eq("id", log.hardware_id);
       }
+    } else {
+      await supabase.from("hardware_assets").update({ lifecycle_status: "Under Maintenance" }).eq("id", log.hardware_id);
     }
 
     await loadActiveLogs(currentUserId);
@@ -204,7 +215,7 @@ export default function DashboardPage() {
           <p className="text-xs uppercase tracking-[0.2em] text-black/40">Assigned to me</p>
           <h3 className="text-lg font-semibold text-app-text">My Active Jobs</h3>
           <p className="mt-1 text-sm text-black/50">
-            Jobs the admin assigned to you. Mark resolved when fixed, or use <strong>Can&apos;t Fix</strong> to escalate to the admin.
+            Jobs the admin assigned to you. Document your work in <strong>Work Orders</strong> first, then mark <strong>Resolve</strong> when fixed or <strong>Can&apos;t Fix</strong> to escalate.
           </p>
         </div>
         {isLoading ? (

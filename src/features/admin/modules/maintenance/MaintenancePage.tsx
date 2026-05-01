@@ -342,11 +342,11 @@ export default function MaintenancePage() {
     technician: profileLookup.get(log.technician_id ?? "") ?? "-",
     status: <StatusBadge status={log.maintenance_status} />,
     action_taken: log.action_taken ? (
-      <span className="block max-w-[180px] truncate text-xs text-black/60" title={log.action_taken}>
+      <span className="block max-w-[280px] whitespace-normal break-words text-xs leading-relaxed text-black/70">
         {log.action_taken}
       </span>
     ) : (
-      <span className="text-xs italic text-black/30">—</span>
+      <span className="text-xs italic text-black/30">Not documented</span>
     ),
     actions: (
       <div className="flex items-center gap-3">
