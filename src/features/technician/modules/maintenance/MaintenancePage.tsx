@@ -187,36 +187,37 @@ export default function MaintenancePage() {
   };
 
   const handleEscalate = async (logId: string) => {
-    setErrorMessage(null);
-    setUpdatingId(logId);
+    try {
+      const log = logs.find((l) => l.id === logId);
+      if (!log) return;
 
-    const { data: fresh } = await supabase
-      .from("maintenance_logs")
-      .select("action_taken")
-      .eq("id", logId)
-      .maybeSingle();
+      if (!log.action_taken?.trim()) {
+        setErrorMessage("Document what you tried under Action Taken before escalating to the admin.");
+        setEditingLog(log);
+        setActionNote(log.action_taken ?? "");
+        return;
+      }
 
-    if (!fresh?.action_taken?.trim()) {
-      setErrorMessage("Document what you tried under Action Taken before escalating to the admin.");
-      const staleLog = logs.find((l) => l.id === logId);
-      if (staleLog) { setEditingLog(staleLog); setActionNote(staleLog.action_taken ?? ""); }
+      setErrorMessage(null);
+      setUpdatingId(logId);
+
+      const { error } = await supabase
+        .from("maintenance_logs")
+        .update({ maintenance_status: "Escalated" })
+        .eq("id", logId);
+
+      if (error) {
+        setErrorMessage(error.message);
+        setUpdatingId(null);
+        return;
+      }
+
+      await loadMyLogs(currentUserId);
       setUpdatingId(null);
-      return;
-    }
-
-    const { error } = await supabase
-      .from("maintenance_logs")
-      .update({ maintenance_status: "Escalated" })
-      .eq("id", logId);
-
-    if (error) {
-      setErrorMessage(error.message);
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : "Unexpected error. Please try again.");
       setUpdatingId(null);
-      return;
     }
-
-    await loadMyLogs(currentUserId);
-    setUpdatingId(null);
   };
 
   const handleOpenNote = (log: MaintenanceLog) => {
