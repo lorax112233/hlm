@@ -140,13 +140,14 @@ export default function MaintenancePage() {
     setIsLoading(true);
     setErrorMessage(null);
 
-    // New jobs always start as Open — status only changes through the technician workflow.
+    // Auto-set initial status: assigned jobs start In Progress, unassigned jobs start Open.
+    const autoStatus = formValues.technician_id ? "In Progress" : "Open";
     const payload = {
       hardware_id: formValues.hardware_id,
       maintenance_date: formValues.maintenance_date,
       issue_description: formValues.issue_description,
       technician_id: formValues.technician_id || null,
-      maintenance_status: editingLog ? formValues.maintenance_status : "Open",
+      maintenance_status: editingLog ? formValues.maintenance_status : autoStatus,
     };
 
     const { error } = editingLog
@@ -538,8 +539,10 @@ export default function MaintenancePage() {
               </select>
             ) : (
               <div className="flex items-center gap-2 rounded-lg border border-black/8 bg-black/[0.02] px-3 py-2 text-sm text-black/50">
-                Open
-                <span className="text-[10px] text-black/30">· New jobs always start as Open</span>
+                {formValues.technician_id ? "In Progress" : "Open"}
+                <span className="text-[10px] text-black/30">
+                  {formValues.technician_id ? "· Auto-set because a technician is assigned" : "· Auto-set — assign a technician to start In Progress"}
+                </span>
               </div>
             )}
           </div>
