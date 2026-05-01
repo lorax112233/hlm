@@ -140,12 +140,13 @@ export default function MaintenancePage() {
     setIsLoading(true);
     setErrorMessage(null);
 
+    // New jobs always start as Open — status only changes through the technician workflow.
     const payload = {
       hardware_id: formValues.hardware_id,
       maintenance_date: formValues.maintenance_date,
       issue_description: formValues.issue_description,
       technician_id: formValues.technician_id || null,
-      maintenance_status: formValues.maintenance_status,
+      maintenance_status: editingLog ? formValues.maintenance_status : "Open",
     };
 
     const { error } = editingLog
@@ -159,7 +160,12 @@ export default function MaintenancePage() {
     }
 
     if (payload.maintenance_status !== "Resolved") {
-      await supabase.from("hardware_assets").update({ lifecycle_status: "Under Maintenance" }).eq("id", payload.hardware_id);
+      // Only flip to Under Maintenance if the asset hasn't been intentionally retired or disposed.
+      await supabase
+        .from("hardware_assets")
+        .update({ lifecycle_status: "Under Maintenance" })
+        .eq("id", payload.hardware_id)
+        .not("lifecycle_status", "in", "(Retired,Disposed)");
     } else {
       const { count } = await supabase
         .from("maintenance_logs")
@@ -167,7 +173,12 @@ export default function MaintenancePage() {
         .eq("hardware_id", payload.hardware_id)
         .in("maintenance_status", ["Open", "In Progress", "Escalated"]);
       if ((count ?? 0) === 0) {
-        await supabase.from("hardware_assets").update({ lifecycle_status: "Active" }).eq("id", payload.hardware_id);
+        // Only restore to Active if the asset was Under Maintenance — never override Retired/Disposed.
+        await supabase
+          .from("hardware_assets")
+          .update({ lifecycle_status: "Active" })
+          .eq("id", payload.hardware_id)
+          .eq("lifecycle_status", "Under Maintenance");
       }
     }
 
@@ -203,7 +214,11 @@ export default function MaintenancePage() {
         .eq("hardware_id", logToDelete.hardware_id)
         .in("maintenance_status", ["Open", "In Progress", "Escalated"]);
       if ((count ?? 0) === 0) {
-        await supabase.from("hardware_assets").update({ lifecycle_status: "Active" }).eq("id", logToDelete.hardware_id);
+        await supabase
+          .from("hardware_assets")
+          .update({ lifecycle_status: "Active" })
+          .eq("id", logToDelete.hardware_id)
+          .eq("lifecycle_status", "Under Maintenance");
       }
     }
   };
@@ -333,6 +348,7 @@ export default function MaintenancePage() {
     total: logs.length,
     open: logs.filter((l) => l.maintenance_status === "Open").length,
     inProgress: logs.filter((l) => l.maintenance_status === "In Progress").length,
+    escalated: logs.filter((l) => l.maintenance_status === "Escalated").length,
     resolved: logs.filter((l) => l.maintenance_status === "Resolved").length,
   }), [logs]);
 
@@ -372,22 +388,26 @@ export default function MaintenancePage() {
           <h3 className="text-xl font-semibold text-app-text">Work Orders</h3>
           <p className="mt-1 text-sm text-black/50">Create, update, and resolve service tickets.</p>
         </div>
-        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="mt-4 grid gap-3 sm:grid-cols-3 xl:grid-cols-5">
           <div className="rounded-2xl border border-black/5 bg-white px-4 py-3">
             <p className="text-[10px] uppercase tracking-[0.25em] text-black/40">Total</p>
             <p className="mt-1 text-2xl font-semibold text-app-text">{maintenanceStats.total}</p>
           </div>
-          <div className="rounded-2xl border border-black/5 bg-white px-4 py-3">
+          <div className="rounded-2xl border border-app-danger/15 bg-white px-4 py-3">
             <p className="text-[10px] uppercase tracking-[0.25em] text-black/40">Open</p>
             <p className="mt-1 text-2xl font-semibold text-app-danger">{maintenanceStats.open}</p>
           </div>
-          <div className="rounded-2xl border border-black/5 bg-white px-4 py-3">
+          <div className="rounded-2xl border border-app-warning/20 bg-white px-4 py-3">
             <p className="text-[10px] uppercase tracking-[0.25em] text-black/40">In Progress</p>
             <p className="mt-1 text-2xl font-semibold text-app-warning">{maintenanceStats.inProgress}</p>
           </div>
-          <div className="rounded-2xl border border-black/5 bg-white px-4 py-3">
+          <div className="rounded-2xl border border-app-danger/20 bg-white px-4 py-3">
+            <p className="text-[10px] uppercase tracking-[0.25em] text-black/40">Escalated</p>
+            <p className="mt-1 text-2xl font-semibold text-app-danger">{maintenanceStats.escalated}</p>
+          </div>
+          <div className="rounded-2xl border border-app-success/20 bg-white px-4 py-3">
             <p className="text-[10px] uppercase tracking-[0.25em] text-black/40">Resolved</p>
-            <p className="mt-1 text-2xl font-semibold text-app-primary">{maintenanceStats.resolved}</p>
+            <p className="mt-1 text-2xl font-semibold text-app-success">{maintenanceStats.resolved}</p>
           </div>
         </div>
       </section>
@@ -505,16 +525,23 @@ export default function MaintenancePage() {
           </div>
           <div className="grid gap-2">
             <label className="text-xs uppercase tracking-[0.2em] text-black/40">Status</label>
-            <select
-              className="rounded-lg border border-black/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-app-primary/15"
-              value={formValues.maintenance_status}
-              onChange={(e) => handleChange("maintenance_status", e.target.value)}
-            >
-              <option value="Open">Open</option>
-              <option value="In Progress">In Progress</option>
-              <option value="Escalated">Escalated</option>
-              <option value="Resolved">Resolved</option>
-            </select>
+            {editingLog ? (
+              <select
+                className="rounded-lg border border-black/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-app-primary/15"
+                value={formValues.maintenance_status}
+                onChange={(e) => handleChange("maintenance_status", e.target.value)}
+              >
+                <option value="Open">Open</option>
+                <option value="In Progress">In Progress</option>
+                <option value="Escalated">Escalated</option>
+                <option value="Resolved">Resolved</option>
+              </select>
+            ) : (
+              <div className="flex items-center gap-2 rounded-lg border border-black/8 bg-black/[0.02] px-3 py-2 text-sm text-black/50">
+                Open
+                <span className="text-[10px] text-black/30">· New jobs always start as Open</span>
+              </div>
+            )}
           </div>
           <div className="md:col-span-2">
             <div className="flex flex-wrap items-center gap-3">

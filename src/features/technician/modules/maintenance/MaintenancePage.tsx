@@ -142,10 +142,18 @@ export default function MaintenancePage() {
         .eq("hardware_id", log.hardware_id)
         .in("maintenance_status", ["Open", "In Progress", "Escalated"]);
       if ((count ?? 0) === 0) {
-        await supabase.from("hardware_assets").update({ lifecycle_status: "Active" }).eq("id", log.hardware_id);
+        await supabase
+          .from("hardware_assets")
+          .update({ lifecycle_status: "Active" })
+          .eq("id", log.hardware_id)
+          .eq("lifecycle_status", "Under Maintenance");
       }
     } else {
-      await supabase.from("hardware_assets").update({ lifecycle_status: "Under Maintenance" }).eq("id", log.hardware_id);
+      await supabase
+        .from("hardware_assets")
+        .update({ lifecycle_status: "Under Maintenance" })
+        .eq("id", log.hardware_id)
+        .not("lifecycle_status", "in", "(Retired,Disposed)");
     }
 
     await loadMyLogs(currentUserId);
