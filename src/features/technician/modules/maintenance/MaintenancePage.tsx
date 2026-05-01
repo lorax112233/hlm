@@ -216,8 +216,8 @@ export default function MaintenancePage() {
         return;
       }
 
-      await loadMyLogs(currentUserId);
       setUpdatingId(null);
+      void loadMyLogs(currentUserId);
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : "Unexpected error. Please try again.");
       setUpdatingId(null);
