@@ -10,7 +10,7 @@ type MaintenanceLog = {
   hardware_id: string;
   maintenance_date: string;
   issue_description: string;
-  technician_name: string | null;
+  technician_id: string | null;
   maintenance_status: string;
 };
 
@@ -36,21 +36,17 @@ export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [currentUserId, setCurrentUserId] = useState("");
   const [currentUserName, setCurrentUserName] = useState("");
 
-  const loadActiveLogs = async (userName: string) => {
+  const loadActiveLogs = async (userId: string) => {
     const { data } = await supabase
       .from("maintenance_logs")
-      .select("id, hardware_id, maintenance_date, issue_description, technician_name, maintenance_status")
+      .select("id, hardware_id, maintenance_date, issue_description, technician_id, maintenance_status")
+      .eq("technician_id", userId)
       .in("maintenance_status", ["Open", "In Progress"])
       .order("maintenance_date", { ascending: false });
-    if (data) {
-      setAllLogs(
-        data.filter(
-          (l) => l.technician_name?.toLowerCase() === userName.toLowerCase(),
-        ),
-      );
-    }
+    if (data) setAllLogs(data);
   };
 
   useEffect(() => {
@@ -64,42 +60,37 @@ export default function DashboardPage() {
 
       const [logsResult, hardwareResult, underMaintenanceResult, expiringResult, userResult] =
         await Promise.all([
-          supabase
-            .from("maintenance_logs")
-            .select("id, hardware_id, maintenance_date, issue_description, technician_name, maintenance_status")
-            .in("maintenance_status", ["Open", "In Progress"])
-            .order("maintenance_date", { ascending: false }),
+          supabase.auth.getUser(), // placeholder — logs fetched after we have userId
           supabase.from("hardware_assets").select("id, asset_id, device_name"),
-          supabase
-            .from("hardware_assets")
-            .select("id", { count: "exact", head: true })
-            .eq("lifecycle_status", "Under Maintenance"),
-          supabase
-            .from("hardware_assets")
-            .select("id", { count: "exact", head: true })
-            .gt("warranty_expiry", today)
-            .lte("warranty_expiry", soonDate),
+          supabase.from("hardware_assets").select("id", { count: "exact", head: true }).eq("lifecycle_status", "Under Maintenance"),
+          supabase.from("hardware_assets").select("id", { count: "exact", head: true }).gt("warranty_expiry", today).lte("warranty_expiry", soonDate),
           supabase.auth.getUser(),
         ]);
 
       if (!isMounted) return;
 
-      const metadata = userResult.data.user?.user_metadata ?? {};
-      const name = metadata.full_name || userResult.data.user?.email || "";
+      const user = userResult.data.user;
+      const userId = user?.id ?? "";
+      const name = user?.user_metadata?.full_name || user?.email || "";
+      setCurrentUserId(userId);
       setCurrentUserName(name);
-
-      if (logsResult.error) {
-        setErrorMessage(logsResult.error.message);
-      } else {
-        const myLogs = (logsResult.data ?? []).filter(
-          (l) => l.technician_name?.toLowerCase() === name.toLowerCase(),
-        );
-        setAllLogs(myLogs);
-      }
 
       if (hardwareResult.data) setHardwareOptions(hardwareResult.data);
       setUnderMaintenance(underMaintenanceResult.count ?? 0);
       setExpiringSoon(expiringResult.count ?? 0);
+
+      if (userId) {
+        const myLogsResult = await supabase
+          .from("maintenance_logs")
+          .select("id, hardware_id, maintenance_date, issue_description, technician_id, maintenance_status")
+          .eq("technician_id", userId)
+          .in("maintenance_status", ["Open", "In Progress"])
+          .order("maintenance_date", { ascending: false });
+        if (!isMounted) return;
+        if (myLogsResult.error) setErrorMessage(myLogsResult.error.message);
+        else setAllLogs(myLogsResult.data ?? []);
+      }
+
       setIsLoading(false);
     };
 
@@ -115,10 +106,7 @@ export default function DashboardPage() {
   const handleStatusUpdate = async (logId: string, newStatus: string) => {
     setUpdatingId(logId);
     const log = allLogs.find((l) => l.id === logId);
-    await supabase
-      .from("maintenance_logs")
-      .update({ maintenance_status: newStatus })
-      .eq("id", logId);
+    await supabase.from("maintenance_logs").update({ maintenance_status: newStatus }).eq("id", logId);
 
     if (log) {
       if (newStatus === "Resolved") {
@@ -128,20 +116,14 @@ export default function DashboardPage() {
           .eq("hardware_id", log.hardware_id)
           .in("maintenance_status", ["Open", "In Progress"]);
         if ((count ?? 0) === 0) {
-          await supabase
-            .from("hardware_assets")
-            .update({ lifecycle_status: "Active" })
-            .eq("id", log.hardware_id);
+          await supabase.from("hardware_assets").update({ lifecycle_status: "Active" }).eq("id", log.hardware_id);
         }
       } else {
-        await supabase
-          .from("hardware_assets")
-          .update({ lifecycle_status: "Under Maintenance" })
-          .eq("id", log.hardware_id);
+        await supabase.from("hardware_assets").update({ lifecycle_status: "Under Maintenance" }).eq("id", log.hardware_id);
       }
     }
 
-    await loadActiveLogs(currentUserName);
+    await loadActiveLogs(currentUserId);
     setUpdatingId(null);
   };
 
@@ -185,16 +167,12 @@ export default function DashboardPage() {
         <p className="mt-1 text-sm text-black/55">
           {currentUserName ? (
             <>Jobs assigned to <span className="font-medium text-app-text">{currentUserName}</span> by the admin.</>
-          ) : (
-            "Your assigned maintenance jobs."
-          )}
+          ) : "Your assigned maintenance jobs."}
         </p>
       </section>
 
       {errorMessage ? (
-        <p className="rounded-lg bg-app-danger/10 px-3 py-2 text-xs text-app-danger">
-          {errorMessage}
-        </p>
+        <p className="rounded-lg bg-app-danger/10 px-3 py-2 text-xs text-app-danger">{errorMessage}</p>
       ) : null}
 
       <section className="grid gap-3 sm:grid-cols-3">
@@ -221,9 +199,7 @@ export default function DashboardPage() {
           </p>
         </div>
         {isLoading ? (
-          <div className="rounded-2xl border border-dashed border-black/10 bg-white/60 p-6 text-sm text-black/60">
-            Loading...
-          </div>
+          <div className="rounded-2xl border border-dashed border-black/10 bg-white/60 p-6 text-sm text-black/60">Loading...</div>
         ) : myJobRows.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-black/10 bg-white/60 p-6 text-sm text-black/60">
             No active jobs assigned to you yet.

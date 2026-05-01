@@ -45,17 +45,17 @@ export default function ProfilePage() {
         avatarUrl: metadata.avatar_url ?? "",
       });
 
-      if (name) {
+      if (data.user.id) {
         const [activeResult, resolvedResult] = await Promise.all([
           supabase
             .from("maintenance_logs")
             .select("id", { count: "exact", head: true })
-            .ilike("technician_name", name)
+            .eq("technician_id", data.user.id)
             .in("maintenance_status", ["Open", "In Progress"]),
           supabase
             .from("maintenance_logs")
             .select("id", { count: "exact", head: true })
-            .ilike("technician_name", name)
+            .eq("technician_id", data.user.id)
             .eq("maintenance_status", "Resolved"),
         ]);
 

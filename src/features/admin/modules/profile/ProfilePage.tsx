@@ -39,7 +39,7 @@ export default function ProfilePage() {
           .from("maintenance_logs")
           .select("id", { count: "exact", head: true })
           .in("maintenance_status", ["Open", "In Progress"]),
-        supabase.from("technicians").select("id", { count: "exact", head: true }),
+        supabase.from("profiles").select("id", { count: "exact", head: true }).eq("role", "technician"),
       ]);
 
       if (!isMounted) return;

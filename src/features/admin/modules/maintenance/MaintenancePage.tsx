@@ -5,6 +5,7 @@ import DataTable from "@/components/ui/DataTable";
 import StatusBadge from "@/components/ui/StatusBadge";
 import { supabase } from "@/lib/supabaseClient";
 import { parseCsv, toCsv } from "@/lib/csv";
+
 type HardwareOption = {
   id: string;
   asset_id: string;
@@ -17,7 +18,17 @@ type MaintenanceLog = {
   maintenance_date: string;
   issue_description: string;
   action_taken: string | null;
-  technician_name: string | null;
+  technician_id: string | null;
+  maintenance_status: string;
+};
+
+type TechnicianProfile = {
+  id: string;
+  full_name: string;
+};
+
+type ActiveLog = {
+  technician_id: string | null;
   maintenance_status: string;
 };
 
@@ -29,20 +40,9 @@ const columns = [
   { key: "actions", label: "Actions" },
 ];
 
-type Technician = {
-  id: string;
-  name: string;
-};
-
-type ActiveLog = {
-  technician_name: string | null;
-  maintenance_status: string;
-};
-
 export default function MaintenancePage() {
-  // State buckets: lookup data, records, form editing, filters, and import/export status.
   const [hardwareOptions, setHardwareOptions] = useState<HardwareOption[]>([]);
-  const [technicianOptions, setTechnicianOptions] = useState<Technician[]>([]);
+  const [technicianOptions, setTechnicianOptions] = useState<TechnicianProfile[]>([]);
   const [activeLogCounts, setActiveLogCounts] = useState<Record<string, number>>({});
   const [logs, setLogs] = useState<MaintenanceLog[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -57,80 +57,48 @@ export default function MaintenancePage() {
     maintenance_date: "",
     issue_description: "",
     action_taken: "",
-    technician_name: "",
+    technician_id: "",
     maintenance_status: "Open",
   });
-
-  const fetchHardwareOptions = async () =>
-    supabase
-      .from("hardware_assets")
-      .select("id, asset_id, device_name")
-      .order("asset_id", { ascending: true });
 
   const fetchLogs = async () =>
     supabase
       .from("maintenance_logs")
-      .select(
-        "id, hardware_id, maintenance_date, issue_description, action_taken, technician_name, maintenance_status",
-      )
+      .select("id, hardware_id, maintenance_date, issue_description, action_taken, technician_id, maintenance_status")
       .order("maintenance_date", { ascending: false });
 
   const loadLogs = async () => {
     const { data, error } = await fetchLogs();
-
-    if (error) {
-      setErrorMessage(error.message);
-      return;
-    }
-
+    if (error) { setErrorMessage(error.message); return; }
     setLogs(data ?? []);
   };
 
   useEffect(() => {
     let isMounted = true;
 
-    // Load supporting hardware map, technicians list, and maintenance rows in parallel.
     const loadInitialData = async () => {
-      const [hardwareResult, logsResult, techResult, activeLogsResult] =
-        await Promise.all([
-          fetchHardwareOptions(),
-          fetchLogs(),
-          supabase
-            .from("technicians")
-            .select("id, name")
-            .order("name", { ascending: true }),
-          supabase
-            .from("maintenance_logs")
-            .select("technician_name, maintenance_status")
-            .in("maintenance_status", ["Open", "In Progress"]),
-        ]);
+      const [hardwareResult, logsResult, techResult, activeLogsResult] = await Promise.all([
+        supabase.from("hardware_assets").select("id, asset_id, device_name").order("asset_id"),
+        fetchLogs(),
+        supabase.from("profiles").select("id, full_name").eq("role", "technician").order("full_name"),
+        supabase.from("maintenance_logs").select("technician_id, maintenance_status").in("maintenance_status", ["Open", "In Progress"]),
+      ]);
 
-      if (!isMounted) {
-        return;
-      }
+      if (!isMounted) return;
 
-      if (hardwareResult.error) {
-        setErrorMessage(hardwareResult.error.message);
-      } else {
-        setHardwareOptions(hardwareResult.data ?? []);
-      }
+      if (hardwareResult.error) setErrorMessage(hardwareResult.error.message);
+      else setHardwareOptions(hardwareResult.data ?? []);
 
-      if (logsResult.error) {
-        setErrorMessage(logsResult.error.message);
-      } else {
-        setLogs(logsResult.data ?? []);
-      }
+      if (logsResult.error) setErrorMessage(logsResult.error.message);
+      else setLogs(logsResult.data ?? []);
 
-      if (techResult.data) {
-        setTechnicianOptions(techResult.data);
-      }
+      if (techResult.data) setTechnicianOptions(techResult.data);
 
       if (activeLogsResult.data) {
         const counts: Record<string, number> = {};
         (activeLogsResult.data as ActiveLog[]).forEach((log) => {
-          if (log.technician_name) {
-            counts[log.technician_name] =
-              (counts[log.technician_name] ?? 0) + 1;
+          if (log.technician_id) {
+            counts[log.technician_id] = (counts[log.technician_id] ?? 0) + 1;
           }
         });
         setActiveLogCounts(counts);
@@ -138,10 +106,7 @@ export default function MaintenancePage() {
     };
 
     void loadInitialData();
-
-    return () => {
-      isMounted = false;
-    };
+    return () => { isMounted = false; };
   }, []);
 
   const handleChange = (key: keyof typeof formValues, value: string) => {
@@ -154,13 +119,13 @@ export default function MaintenancePage() {
       maintenance_date: "",
       issue_description: "",
       action_taken: "",
-      technician_name: "",
+      technician_id: "",
       maintenance_status: "Open",
     });
     setEditingLog(null);
   };
 
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: { preventDefault(): void }) => {
     event.preventDefault();
     setIsLoading(true);
     setErrorMessage(null);
@@ -170,15 +135,12 @@ export default function MaintenancePage() {
       maintenance_date: formValues.maintenance_date,
       issue_description: formValues.issue_description,
       action_taken: formValues.action_taken || null,
-      technician_name: formValues.technician_name || null,
+      technician_id: formValues.technician_id || null,
       maintenance_status: formValues.maintenance_status,
     };
 
     const { error } = editingLog
-      ? await supabase
-          .from("maintenance_logs")
-          .update(payload)
-          .eq("id", editingLog.id)
+      ? await supabase.from("maintenance_logs").update(payload).eq("id", editingLog.id)
       : await supabase.from("maintenance_logs").insert(payload);
 
     if (error) {
@@ -188,10 +150,7 @@ export default function MaintenancePage() {
     }
 
     if (payload.maintenance_status !== "Resolved") {
-      await supabase
-        .from("hardware_assets")
-        .update({ lifecycle_status: "Under Maintenance" })
-        .eq("id", payload.hardware_id);
+      await supabase.from("hardware_assets").update({ lifecycle_status: "Under Maintenance" }).eq("id", payload.hardware_id);
     } else {
       const { count } = await supabase
         .from("maintenance_logs")
@@ -199,10 +158,7 @@ export default function MaintenancePage() {
         .eq("hardware_id", payload.hardware_id)
         .in("maintenance_status", ["Open", "In Progress"]);
       if ((count ?? 0) === 0) {
-        await supabase
-          .from("hardware_assets")
-          .update({ lifecycle_status: "Active" })
-          .eq("id", payload.hardware_id);
+        await supabase.from("hardware_assets").update({ lifecycle_status: "Active" }).eq("id", payload.hardware_id);
       }
     }
 
@@ -218,7 +174,7 @@ export default function MaintenancePage() {
       maintenance_date: log.maintenance_date,
       issue_description: log.issue_description,
       action_taken: log.action_taken ?? "",
-      technician_name: log.technician_name ?? "",
+      technician_id: log.technician_id ?? "",
       maintenance_status: log.maintenance_status,
     });
   };
@@ -226,15 +182,9 @@ export default function MaintenancePage() {
   const handleDelete = async (id: string) => {
     setErrorMessage(null);
     const logToDelete = logs.find((l) => l.id === id);
-    const { error } = await supabase
-      .from("maintenance_logs")
-      .delete()
-      .eq("id", id);
+    const { error } = await supabase.from("maintenance_logs").delete().eq("id", id);
 
-    if (error) {
-      setErrorMessage(error.message);
-      return;
-    }
+    if (error) { setErrorMessage(error.message); return; }
 
     setLogs((prev) => prev.filter((log) => log.id !== id));
 
@@ -245,23 +195,19 @@ export default function MaintenancePage() {
         .eq("hardware_id", logToDelete.hardware_id)
         .in("maintenance_status", ["Open", "In Progress"]);
       if ((count ?? 0) === 0) {
-        await supabase
-          .from("hardware_assets")
-          .update({ lifecycle_status: "Active" })
-          .eq("id", logToDelete.hardware_id);
+        await supabase.from("hardware_assets").update({ lifecycle_status: "Active" }).eq("id", logToDelete.hardware_id);
       }
     }
   };
 
   const hardwareLookup = useMemo(
-    () =>
-      new Map(
-        hardwareOptions.map((item) => [
-          item.id,
-          `${item.asset_id} - ${item.device_name}`,
-        ]),
-      ),
+    () => new Map(hardwareOptions.map((item) => [item.id, `${item.asset_id} - ${item.device_name}`])),
     [hardwareOptions],
+  );
+
+  const profileLookup = useMemo(
+    () => new Map(technicianOptions.map((p) => [p.id, p.full_name])),
+    [technicianOptions],
   );
 
   const hardwareLabel = useCallback(
@@ -270,43 +216,26 @@ export default function MaintenancePage() {
   );
 
   const maintenanceHeaders = [
-    "hardware_id",
-    "asset_id",
-    "maintenance_date",
-    "issue_description",
-    "action_taken",
-    "technician_name",
-    "maintenance_status",
+    "hardware_id", "asset_id", "maintenance_date",
+    "issue_description", "action_taken", "technician_id", "maintenance_status",
   ];
 
   const resolveHardwareId = (hardwareId: string, assetId: string) => {
-    // Import helper: allow CSV rows to reference either hardware UUID or asset_id.
-    if (hardwareId) {
-      return hardwareId;
-    }
-
-    if (!assetId) {
-      return "";
-    }
-
-    const match = hardwareOptions.find(
-      (option) => option.asset_id.toLowerCase() === assetId.toLowerCase(),
-    );
-    return match?.id ?? "";
+    if (hardwareId) return hardwareId;
+    if (!assetId) return "";
+    return hardwareOptions.find((o) => o.asset_id.toLowerCase() === assetId.toLowerCase())?.id ?? "";
   };
 
   const handleExport = () => {
-    // Denormalize hardware relation so exported CSV is human-readable.
     const rowsToExport = logs.map((log) => {
-      const label = hardwareOptions.find((item) => item.id === log.hardware_id);
-
+      const hw = hardwareOptions.find((item) => item.id === log.hardware_id);
       return {
         hardware_id: log.hardware_id,
-        asset_id: label?.asset_id ?? "",
+        asset_id: hw?.asset_id ?? "",
         maintenance_date: log.maintenance_date,
         issue_description: log.issue_description,
         action_taken: log.action_taken ?? "",
-        technician_name: log.technician_name ?? "",
+        technician_id: log.technician_id ?? "",
         maintenance_status: log.maintenance_status,
       };
     });
@@ -315,7 +244,6 @@ export default function MaintenancePage() {
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement("a");
-
     link.href = url;
     link.download = "maintenance_logs.csv";
     link.click();
@@ -324,9 +252,7 @@ export default function MaintenancePage() {
 
   const handleImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file) {
-      return;
-    }
+    if (!file) return;
 
     setIsImporting(true);
     setImportMessage(null);
@@ -340,44 +266,32 @@ export default function MaintenancePage() {
       return;
     }
 
-    const headers = rows[0].map((header) => header.trim().toLowerCase());
-    // Dynamic header resolver allows flexible CSV column order.
+    const headers = rows[0].map((h) => h.trim().toLowerCase());
     const getValue = (row: string[], key: string) => {
       const index = headers.indexOf(key);
-      if (index === -1) {
-        return "";
-      }
-      return (row[index] ?? "").trim();
+      return index === -1 ? "" : (row[index] ?? "").trim();
     };
 
-    const payload = rows.slice(1).reduce<Array<Record<string, string | null>>>(
-      (acc, row) => {
-        const hardwareId = getValue(row, "hardware_id");
-        const assetId = getValue(row, "asset_id");
-        const resolvedHardwareId = resolveHardwareId(hardwareId, assetId);
-        const maintenanceDate = getValue(row, "maintenance_date");
-        const issue = getValue(row, "issue_description");
+    const payload = rows.slice(1).reduce<Array<Record<string, string | null>>>((acc, row) => {
+      const resolvedHardwareId = resolveHardwareId(getValue(row, "hardware_id"), getValue(row, "asset_id"));
+      const maintenanceDate = getValue(row, "maintenance_date");
+      const issue = getValue(row, "issue_description");
 
-        if (!resolvedHardwareId || !maintenanceDate || !issue) {
-          return acc;
-        }
+      if (!resolvedHardwareId || !maintenanceDate || !issue) return acc;
 
-        acc.push({
-          hardware_id: resolvedHardwareId,
-          maintenance_date: maintenanceDate,
-          issue_description: issue,
-          action_taken: getValue(row, "action_taken") || null,
-          technician_name: getValue(row, "technician_name") || null,
-          maintenance_status: getValue(row, "maintenance_status") || "Open",
-        });
-
-        return acc;
-      },
-      [],
-    );
+      acc.push({
+        hardware_id: resolvedHardwareId,
+        maintenance_date: maintenanceDate,
+        issue_description: issue,
+        action_taken: getValue(row, "action_taken") || null,
+        technician_id: getValue(row, "technician_id") || null,
+        maintenance_status: getValue(row, "maintenance_status") || "Open",
+      });
+      return acc;
+    }, []);
 
     if (payload.length === 0) {
-      setImportMessage("No valid rows found. Check hardware IDs or asset IDs.");
+      setImportMessage("No valid rows found. Check hardware IDs.");
       setIsImporting(false);
       return;
     }
@@ -396,90 +310,52 @@ export default function MaintenancePage() {
   };
 
   const filteredLogs = useMemo(() => {
-    // Apply status + text filters client-side for fast dashboard interaction.
     const normalized = searchTerm.trim().toLowerCase();
-
     return logs.filter((log) => {
-      const matchesStatus =
-        statusFilter === "All" || log.maintenance_status === statusFilter;
-
-      if (!normalized) {
-        return matchesStatus;
-      }
-
-      const label = hardwareLabel(log.hardware_id);
-      const haystack = [
-        label,
-        log.issue_description,
-        log.technician_name ?? "",
-        log.maintenance_status,
-      ]
-        .join(" ")
-        .toLowerCase();
-
+      const matchesStatus = statusFilter === "All" || log.maintenance_status === statusFilter;
+      if (!normalized) return matchesStatus;
+      const techName = profileLookup.get(log.technician_id ?? "") ?? "";
+      const haystack = [hardwareLabel(log.hardware_id), log.issue_description, techName, log.maintenance_status]
+        .join(" ").toLowerCase();
       return matchesStatus && haystack.includes(normalized);
     });
-  }, [hardwareLabel, logs, searchTerm, statusFilter]);
+  }, [hardwareLabel, logs, profileLookup, searchTerm, statusFilter]);
 
-  const maintenanceStats = useMemo(() => {
-    // Derived status counts feed summary cards.
-    const open = logs.filter((log) => log.maintenance_status === "Open").length;
-    const inProgress = logs.filter(
-      (log) => log.maintenance_status === "In Progress",
-    ).length;
-    const resolved = logs.filter(
-      (log) => log.maintenance_status === "Resolved",
-    ).length;
-
-    return {
-      total: logs.length,
-      open,
-      inProgress,
-      resolved,
-    };
-  }, [logs]);
+  const maintenanceStats = useMemo(() => ({
+    total: logs.length,
+    open: logs.filter((l) => l.maintenance_status === "Open").length,
+    inProgress: logs.filter((l) => l.maintenance_status === "In Progress").length,
+    resolved: logs.filter((l) => l.maintenance_status === "Resolved").length,
+  }), [logs]);
 
   const rows = filteredLogs.map((log) => ({
     asset: hardwareLabel(log.hardware_id),
     issue: log.issue_description,
-    technician: log.technician_name ?? "-",
+    technician: profileLookup.get(log.technician_id ?? "") ?? "-",
     status: <StatusBadge status={log.maintenance_status} />,
     actions: (
       <div className="flex items-center gap-3">
-        <button
-          className="text-xs font-semibold text-app-primary"
-          type="button"
-          onClick={() => handleEdit(log)}
-        >
+        <button className="text-xs font-semibold text-app-primary" type="button" onClick={() => handleEdit(log)}>
           Edit
         </button>
-        <button
-          className="text-xs font-semibold text-app-danger"
-          type="button"
-          onClick={() => handleDelete(log.id)}
-        >
+        <button className="text-xs font-semibold text-app-danger" type="button" onClick={() => handleDelete(log.id)}>
           Delete
         </button>
       </div>
     ),
   }));
 
-  const emptyMessage =
-    logs.length === 0
-      ? "No maintenance logs yet. Create a work order to get started."
-      : "No maintenance logs match the current filters.";
+  const emptyMessage = logs.length === 0
+    ? "No maintenance logs yet. Create a work order to get started."
+    : "No maintenance logs match the current filters.";
 
   return (
     <div className="space-y-6">
       <section className="rounded-3xl border border-black/5 bg-white/90 p-6 shadow-sm shadow-black/5">
-        <p className="text-[10px] uppercase tracking-[0.3em] text-black/40">
-          Maintenance
-        </p>
+        <p className="text-[10px] uppercase tracking-[0.3em] text-black/40">Maintenance</p>
         <div className="mt-3">
           <h3 className="text-xl font-semibold text-app-text">Work Orders</h3>
-          <p className="mt-1 text-sm text-black/50">
-            Create, update, and resolve service tickets.
-          </p>
+          <p className="mt-1 text-sm text-black/50">Create, update, and resolve service tickets.</p>
         </div>
         <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <div className="rounded-2xl border border-black/5 bg-white px-4 py-3">
@@ -505,9 +381,7 @@ export default function MaintenancePage() {
         <div>
           <p className="text-xs uppercase tracking-[0.2em] text-black/40">Maintenance</p>
           <h3 className="text-lg font-semibold text-app-text">Work Orders</h3>
-          <p className="mt-1 text-sm text-black/50">
-            Filter and manage maintenance logs.
-          </p>
+          <p className="mt-1 text-sm text-black/50">Filter and manage maintenance logs.</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <input
@@ -515,12 +389,12 @@ export default function MaintenancePage() {
             placeholder="Search logs"
             type="search"
             value={searchTerm}
-            onChange={(event) => setSearchTerm(event.target.value)}
+            onChange={(e) => setSearchTerm(e.target.value)}
           />
           <select
             className="rounded-lg border border-black/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-app-primary/15"
             value={statusFilter}
-            onChange={(event) => setStatusFilter(event.target.value)}
+            onChange={(e) => setStatusFilter(e.target.value)}
           >
             <option value="All">All statuses</option>
             <option value="Open">Open</option>
@@ -535,152 +409,116 @@ export default function MaintenancePage() {
             Export CSV
           </button>
           <label className="cursor-pointer rounded-lg border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-black/60">
-            <input
-              accept=".csv"
-              className="hidden"
-              type="file"
-              onChange={handleImport}
-            />
+            <input accept=".csv" className="hidden" type="file" onChange={handleImport} />
             {isImporting ? "Importing..." : "Import CSV"}
           </label>
         </div>
         {importMessage ? (
-          <p className="rounded-lg bg-app-primary/10 px-3 py-2 text-xs text-app-primary">
-            {importMessage}
-          </p>
+          <p className="rounded-lg bg-app-primary/10 px-3 py-2 text-xs text-app-primary">{importMessage}</p>
         ) : null}
         {errorMessage ? (
-          <p className="rounded-lg bg-app-danger/10 px-3 py-2 text-xs text-app-danger">
-            {errorMessage}
-          </p>
+          <p className="rounded-lg bg-app-danger/10 px-3 py-2 text-xs text-app-danger">{errorMessage}</p>
         ) : null}
-          <form
-            className="grid gap-4 rounded-2xl border border-black/5 bg-white p-6 shadow-sm md:grid-cols-2"
-            onSubmit={handleSubmit}
-          >
-        <div className="grid gap-2">
-          <label className="text-xs uppercase tracking-[0.2em] text-black/40">
-            Hardware Asset
-          </label>
-          <select
-            className="rounded-lg border border-black/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-app-primary/15"
-            value={formValues.hardware_id}
-            onChange={(event) => handleChange("hardware_id", event.target.value)}
-            required
-          >
-            <option value="">Select hardware</option>
-            {hardwareOptions.map((option) => (
-              <option key={option.id} value={option.id}>
-                {option.asset_id} - {option.device_name}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="grid gap-2">
-          <label className="text-xs uppercase tracking-[0.2em] text-black/40">
-            Maintenance Date
-          </label>
-          <input
-            className="rounded-lg border border-black/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-app-primary/15"
-            type="date"
-            value={formValues.maintenance_date}
-            onChange={(event) =>
-              handleChange("maintenance_date", event.target.value)
-            }
-            required
-          />
-        </div>
-        <div className="grid gap-2 md:col-span-2">
-          <label className="text-xs uppercase tracking-[0.2em] text-black/40">
-            Issue Description
-          </label>
-          <input
-            className="rounded-lg border border-black/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-app-primary/15"
-            type="text"
-            value={formValues.issue_description}
-            onChange={(event) =>
-              handleChange("issue_description", event.target.value)
-            }
-            required
-          />
-        </div>
-        <div className="grid gap-2">
-          <label className="text-xs uppercase tracking-[0.2em] text-black/40">
-            Action Taken
-          </label>
-          <input
-            className="rounded-lg border border-black/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-app-primary/15"
-            type="text"
-            value={formValues.action_taken}
-            onChange={(event) =>
-              handleChange("action_taken", event.target.value)
-            }
-          />
-        </div>
-        <div className="grid gap-2">
-          <label className="text-xs uppercase tracking-[0.2em] text-black/40">
-            Assign Technician
-          </label>
-          <select
-            className="rounded-lg border border-black/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-app-primary/15"
-            value={formValues.technician_name}
-            onChange={(event) =>
-              handleChange("technician_name", event.target.value)
-            }
-          >
-            <option value="">Unassigned</option>
-            {technicianOptions.map((tech) => {
-              const jobs = activeLogCounts[tech.name] ?? 0;
-              return (
-                <option key={tech.id} value={tech.name}>
-                  {tech.name}
-                  {jobs > 0 ? ` (${jobs} active job${jobs > 1 ? "s" : ""})` : " · Available"}
-                </option>
-              );
-            })}
-          </select>
-        </div>
-        <div className="grid gap-2">
-          <label className="text-xs uppercase tracking-[0.2em] text-black/40">
-            Status
-          </label>
-          <select
-            className="rounded-lg border border-black/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-app-primary/15"
-            value={formValues.maintenance_status}
-            onChange={(event) =>
-              handleChange("maintenance_status", event.target.value)
-            }
-          >
-            <option value="Open">Open</option>
-            <option value="In Progress">In Progress</option>
-            <option value="Resolved">Resolved</option>
-          </select>
-        </div>
-        <div className="md:col-span-2">
-          <div className="flex flex-wrap items-center gap-3">
-            <button
-              className="rounded-lg bg-app-primary px-4 py-2 text-sm font-semibold text-white disabled:opacity-70"
-              type="submit"
-              disabled={isLoading}
+        <form
+          className="grid gap-4 rounded-2xl border border-black/5 bg-white p-6 shadow-sm md:grid-cols-2"
+          onSubmit={handleSubmit}
+        >
+          <div className="grid gap-2">
+            <label className="text-xs uppercase tracking-[0.2em] text-black/40">Hardware Asset</label>
+            <select
+              className="rounded-lg border border-black/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-app-primary/15"
+              value={formValues.hardware_id}
+              onChange={(e) => handleChange("hardware_id", e.target.value)}
+              required
             >
-              {isLoading
-                ? "Saving..."
-                : editingLog
-                  ? "Update Log"
-                  : "Add Maintenance Log"}
-            </button>
-            {editingLog ? (
-              <button
-                className="rounded-lg border border-black/10 px-4 py-2 text-sm font-semibold text-black/60"
-                type="button"
-                onClick={resetForm}
-              >
-                Cancel
-              </button>
-            ) : null}
+              <option value="">Select hardware</option>
+              {hardwareOptions.map((option) => (
+                <option key={option.id} value={option.id}>
+                  {option.asset_id} - {option.device_name}
+                </option>
+              ))}
+            </select>
           </div>
-        </div>
-          </form>
+          <div className="grid gap-2">
+            <label className="text-xs uppercase tracking-[0.2em] text-black/40">Maintenance Date</label>
+            <input
+              className="rounded-lg border border-black/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-app-primary/15"
+              type="date"
+              value={formValues.maintenance_date}
+              onChange={(e) => handleChange("maintenance_date", e.target.value)}
+              required
+            />
+          </div>
+          <div className="grid gap-2 md:col-span-2">
+            <label className="text-xs uppercase tracking-[0.2em] text-black/40">Issue Description</label>
+            <input
+              className="rounded-lg border border-black/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-app-primary/15"
+              type="text"
+              value={formValues.issue_description}
+              onChange={(e) => handleChange("issue_description", e.target.value)}
+              required
+            />
+          </div>
+          <div className="grid gap-2">
+            <label className="text-xs uppercase tracking-[0.2em] text-black/40">Action Taken</label>
+            <input
+              className="rounded-lg border border-black/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-app-primary/15"
+              type="text"
+              value={formValues.action_taken}
+              onChange={(e) => handleChange("action_taken", e.target.value)}
+            />
+          </div>
+          <div className="grid gap-2">
+            <label className="text-xs uppercase tracking-[0.2em] text-black/40">Assign Technician</label>
+            <select
+              className="rounded-lg border border-black/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-app-primary/15"
+              value={formValues.technician_id}
+              onChange={(e) => handleChange("technician_id", e.target.value)}
+            >
+              <option value="">Unassigned</option>
+              {technicianOptions.map((tech) => {
+                const jobs = activeLogCounts[tech.id] ?? 0;
+                return (
+                  <option key={tech.id} value={tech.id}>
+                    {tech.full_name}{jobs > 0 ? ` (${jobs} active job${jobs > 1 ? "s" : ""})` : " · Available"}
+                  </option>
+                );
+              })}
+            </select>
+          </div>
+          <div className="grid gap-2">
+            <label className="text-xs uppercase tracking-[0.2em] text-black/40">Status</label>
+            <select
+              className="rounded-lg border border-black/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-app-primary/15"
+              value={formValues.maintenance_status}
+              onChange={(e) => handleChange("maintenance_status", e.target.value)}
+            >
+              <option value="Open">Open</option>
+              <option value="In Progress">In Progress</option>
+              <option value="Resolved">Resolved</option>
+            </select>
+          </div>
+          <div className="md:col-span-2">
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                className="rounded-lg bg-app-primary px-4 py-2 text-sm font-semibold text-white disabled:opacity-70"
+                type="submit"
+                disabled={isLoading}
+              >
+                {isLoading ? "Saving..." : editingLog ? "Update Log" : "Add Maintenance Log"}
+              </button>
+              {editingLog ? (
+                <button
+                  className="rounded-lg border border-black/10 px-4 py-2 text-sm font-semibold text-black/60"
+                  type="button"
+                  onClick={resetForm}
+                >
+                  Cancel
+                </button>
+              ) : null}
+            </div>
+          </div>
+        </form>
         {rows.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-black/10 bg-white/60 p-6 text-sm text-black/60">
             {emptyMessage}
@@ -691,6 +529,3 @@ export default function MaintenancePage() {
     </div>
   );
 }
-
-
-

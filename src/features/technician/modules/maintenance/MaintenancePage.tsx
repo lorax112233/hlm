@@ -17,7 +17,7 @@ type MaintenanceLog = {
   maintenance_date: string;
   issue_description: string;
   action_taken: string | null;
-  technician_name: string | null;
+  technician_id: string | null;
   maintenance_status: string;
 };
 
@@ -40,13 +40,14 @@ export default function MaintenancePage() {
   const [actionNote, setActionNote] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [currentUserId, setCurrentUserId] = useState("");
   const [currentUserName, setCurrentUserName] = useState("");
 
-  const loadMyLogs = async (userName: string) => {
+  const loadMyLogs = async (userId: string) => {
     const { data, error } = await supabase
       .from("maintenance_logs")
-      .select("id, hardware_id, maintenance_date, issue_description, action_taken, technician_name, maintenance_status")
-      .ilike("technician_name", userName)
+      .select("id, hardware_id, maintenance_date, issue_description, action_taken, technician_id, maintenance_status")
+      .eq("technician_id", userId)
       .order("maintenance_date", { ascending: false });
     if (!error) setLogs(data ?? []);
   };
@@ -64,15 +65,17 @@ export default function MaintenancePage() {
 
       if (hardwareResult.data) setHardwareOptions(hardwareResult.data);
 
-      const metadata = userResult.data.user?.user_metadata ?? {};
-      const name = metadata.full_name || userResult.data.user?.email || "";
+      const user = userResult.data.user;
+      const userId = user?.id ?? "";
+      const name = user?.user_metadata?.full_name || user?.email || "";
+      setCurrentUserId(userId);
       setCurrentUserName(name);
 
-      if (name) {
+      if (userId) {
         const logsResult = await supabase
           .from("maintenance_logs")
-          .select("id, hardware_id, maintenance_date, issue_description, action_taken, technician_name, maintenance_status")
-          .ilike("technician_name", name)
+          .select("id, hardware_id, maintenance_date, issue_description, action_taken, technician_id, maintenance_status")
+          .eq("technician_id", userId)
           .order("maintenance_date", { ascending: false });
         if (!isMounted) return;
         if (logsResult.error) setErrorMessage(logsResult.error.message);
@@ -125,20 +128,14 @@ export default function MaintenancePage() {
           .eq("hardware_id", log.hardware_id)
           .in("maintenance_status", ["Open", "In Progress"]);
         if ((count ?? 0) === 0) {
-          await supabase
-            .from("hardware_assets")
-            .update({ lifecycle_status: "Active" })
-            .eq("id", log.hardware_id);
+          await supabase.from("hardware_assets").update({ lifecycle_status: "Active" }).eq("id", log.hardware_id);
         }
       } else {
-        await supabase
-          .from("hardware_assets")
-          .update({ lifecycle_status: "Under Maintenance" })
-          .eq("id", log.hardware_id);
+        await supabase.from("hardware_assets").update({ lifecycle_status: "Under Maintenance" }).eq("id", log.hardware_id);
       }
     }
 
-    await loadMyLogs(currentUserName);
+    await loadMyLogs(currentUserId);
     setUpdatingId(null);
   };
 
@@ -150,11 +147,8 @@ export default function MaintenancePage() {
   const handleSaveNote = async () => {
     if (!editingLog) return;
     setIsSaving(true);
-    await supabase
-      .from("maintenance_logs")
-      .update({ action_taken: actionNote })
-      .eq("id", editingLog.id);
-    await loadMyLogs(currentUserName);
+    await supabase.from("maintenance_logs").update({ action_taken: actionNote }).eq("id", editingLog.id);
+    await loadMyLogs(currentUserId);
     setEditingLog(null);
     setIsSaving(false);
   };
@@ -250,9 +244,7 @@ export default function MaintenancePage() {
             <p className="rounded-lg bg-app-danger/10 px-3 py-2 text-xs text-app-danger">{errorMessage}</p>
           ) : null}
           {isLoading ? (
-            <div className="rounded-2xl border border-dashed border-black/10 bg-white/60 p-6 text-sm text-black/60">
-              Loading...
-            </div>
+            <div className="rounded-2xl border border-dashed border-black/10 bg-white/60 p-6 text-sm text-black/60">Loading...</div>
           ) : rows.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-black/10 bg-white/60 p-6 text-sm text-black/60">
               {logs.length === 0
@@ -268,11 +260,9 @@ export default function MaintenancePage() {
             <div>
               <p className="text-xs uppercase tracking-[0.2em] text-black/40">Add Note</p>
               <h3 className="text-lg font-semibold text-app-text">Action Taken</h3>
-              <p className="mt-1 text-sm text-black/50">
-                Document what you did for this job.
-              </p>
+              <p className="mt-1 text-sm text-black/50">Document what you did for this job.</p>
             </div>
-            <div className="rounded-xl border border-black/8 bg-white/80 px-4 py-3 space-y-2">
+            <div className="space-y-2 rounded-xl border border-black/8 bg-white/80 px-4 py-3">
               <div>
                 <p className="text-[10px] uppercase tracking-[0.2em] text-black/40">Asset</p>
                 <p className="mt-0.5 text-sm font-medium text-app-text">
@@ -285,15 +275,11 @@ export default function MaintenancePage() {
               </div>
               <div>
                 <p className="text-[10px] uppercase tracking-[0.2em] text-black/40">Status</p>
-                <div className="mt-0.5">
-                  <StatusBadge status={editingLog.maintenance_status} />
-                </div>
+                <div className="mt-0.5"><StatusBadge status={editingLog.maintenance_status} /></div>
               </div>
             </div>
             <div className="grid gap-2">
-              <label className="text-xs uppercase tracking-[0.2em] text-black/40">
-                What did you do?
-              </label>
+              <label className="text-xs uppercase tracking-[0.2em] text-black/40">What did you do?</label>
               <textarea
                 className="app-input min-h-[100px] rounded-xl px-3 py-2.5 text-sm"
                 placeholder="Describe the action taken to resolve this issue..."
