@@ -186,6 +186,39 @@ export default function MaintenancePage() {
     }
   };
 
+  const handleEscalate = async (logId: string) => {
+    setErrorMessage(null);
+    setUpdatingId(logId);
+
+    const { data: fresh } = await supabase
+      .from("maintenance_logs")
+      .select("action_taken")
+      .eq("id", logId)
+      .maybeSingle();
+
+    if (!fresh?.action_taken?.trim()) {
+      setErrorMessage("Document what you tried under Action Taken before escalating to the admin.");
+      const staleLog = logs.find((l) => l.id === logId);
+      if (staleLog) { setEditingLog(staleLog); setActionNote(staleLog.action_taken ?? ""); }
+      setUpdatingId(null);
+      return;
+    }
+
+    const { error } = await supabase
+      .from("maintenance_logs")
+      .update({ maintenance_status: "Escalated" })
+      .eq("id", logId);
+
+    if (error) {
+      setErrorMessage(error.message);
+      setUpdatingId(null);
+      return;
+    }
+
+    await loadMyLogs(currentUserId);
+    setUpdatingId(null);
+  };
+
   const handleOpenNote = (log: MaintenanceLog) => {
     setEditingLog(log);
     setActionNote(log.action_taken ?? "");
@@ -238,7 +271,7 @@ export default function MaintenancePage() {
               className="rounded border border-app-danger/30 bg-app-danger/10 px-2 py-0.5 text-xs font-semibold text-app-danger transition hover:bg-app-danger/20 disabled:opacity-50"
               type="button"
               disabled={updatingId === log.id}
-              onClick={() => handleQuickStatus(log.id, "Escalated")}
+              onClick={() => handleEscalate(log.id)}
             >
               {updatingId === log.id ? "..." : "Can't Fix"}
             </button>
