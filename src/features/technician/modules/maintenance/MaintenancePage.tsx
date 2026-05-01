@@ -98,6 +98,7 @@ export default function MaintenancePage() {
     open: logs.filter((l) => l.maintenance_status === "Open").length,
     inProgress: logs.filter((l) => l.maintenance_status === "In Progress").length,
     resolved: logs.filter((l) => l.maintenance_status === "Resolved").length,
+    escalated: logs.filter((l) => l.maintenance_status === "Escalated").length,
   }), [logs]);
 
   const filteredLogs = useMemo(() => {
@@ -126,7 +127,7 @@ export default function MaintenancePage() {
           .from("maintenance_logs")
           .select("id", { count: "exact", head: true })
           .eq("hardware_id", log.hardware_id)
-          .in("maintenance_status", ["Open", "In Progress"]);
+          .in("maintenance_status", ["Open", "In Progress", "Escalated"]);
         if ((count ?? 0) === 0) {
           await supabase.from("hardware_assets").update({ lifecycle_status: "Active" }).eq("id", log.hardware_id);
         }
@@ -171,14 +172,24 @@ export default function MaintenancePage() {
           </button>
         ) : null}
         {log.maintenance_status === "In Progress" ? (
-          <button
-            className="rounded border border-app-success/30 bg-app-success/10 px-2 py-0.5 text-xs font-semibold text-app-success transition hover:bg-app-success/20 disabled:opacity-50"
-            type="button"
-            disabled={updatingId === log.id}
-            onClick={() => handleQuickStatus(log.id, "Resolved")}
-          >
-            {updatingId === log.id ? "..." : "Resolve"}
-          </button>
+          <>
+            <button
+              className="rounded border border-app-success/30 bg-app-success/10 px-2 py-0.5 text-xs font-semibold text-app-success transition hover:bg-app-success/20 disabled:opacity-50"
+              type="button"
+              disabled={updatingId === log.id}
+              onClick={() => handleQuickStatus(log.id, "Resolved")}
+            >
+              {updatingId === log.id ? "..." : "Resolve"}
+            </button>
+            <button
+              className="rounded border border-app-danger/30 bg-app-danger/10 px-2 py-0.5 text-xs font-semibold text-app-danger transition hover:bg-app-danger/20 disabled:opacity-50"
+              type="button"
+              disabled={updatingId === log.id}
+              onClick={() => handleQuickStatus(log.id, "Escalated")}
+            >
+              {updatingId === log.id ? "..." : "Can't Fix"}
+            </button>
+          </>
         ) : null}
         <button
           className="text-xs font-semibold text-black/45 transition hover:text-app-text"
@@ -199,12 +210,12 @@ export default function MaintenancePage() {
         <h3 className="mt-2 text-xl font-semibold text-app-text">My Work Orders</h3>
         <p className="mt-1 text-sm text-black/55">
           {currentUserName ? (
-            <>All jobs assigned to <span className="font-medium text-app-text">{currentUserName}</span>. Start, resolve, and add notes to your work.</>
+            <>All jobs assigned to <span className="font-medium text-app-text">{currentUserName}</span>. Document your work with notes, resolve when fixed, or use <strong>Can&apos;t Fix</strong> to escalate to the admin.</>
           ) : "Loading your work orders..."}
         </p>
       </section>
 
-      <section className="grid gap-3 sm:grid-cols-3">
+      <section className="grid gap-3 sm:grid-cols-4">
         <div className="rounded-2xl border border-app-danger/15 bg-white/88 px-4 py-3 shadow-sm shadow-black/5">
           <p className="text-[10px] uppercase tracking-[0.25em] text-black/40">Open</p>
           <p className="mt-1 text-2xl font-semibold text-app-danger">{myStats.open}</p>
@@ -216,6 +227,10 @@ export default function MaintenancePage() {
         <div className="rounded-2xl border border-app-success/20 bg-white/88 px-4 py-3 shadow-sm shadow-black/5">
           <p className="text-[10px] uppercase tracking-[0.25em] text-black/40">Resolved</p>
           <p className="mt-1 text-2xl font-semibold text-app-success">{myStats.resolved}</p>
+        </div>
+        <div className="rounded-2xl border border-app-danger/20 bg-white/88 px-4 py-3 shadow-sm shadow-black/5">
+          <p className="text-[10px] uppercase tracking-[0.25em] text-black/40">Escalated</p>
+          <p className="mt-1 text-2xl font-semibold text-app-danger">{myStats.escalated}</p>
         </div>
       </section>
 
@@ -238,6 +253,7 @@ export default function MaintenancePage() {
               <option value="Open">Open</option>
               <option value="In Progress">In Progress</option>
               <option value="Resolved">Resolved</option>
+              <option value="Escalated">Escalated</option>
             </select>
           </div>
           {errorMessage ? (

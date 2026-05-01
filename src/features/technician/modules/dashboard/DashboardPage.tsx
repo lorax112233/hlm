@@ -113,7 +113,7 @@ export default function DashboardPage() {
           .from("maintenance_logs")
           .select("id", { count: "exact", head: true })
           .eq("hardware_id", log.hardware_id)
-          .in("maintenance_status", ["Open", "In Progress"]);
+          .in("maintenance_status", ["Open", "In Progress", "Escalated"]);
         if ((count ?? 0) === 0) {
           await supabase.from("hardware_assets").update({ lifecycle_status: "Active" }).eq("id", log.hardware_id);
         }
@@ -144,14 +144,24 @@ export default function DashboardPage() {
           </button>
         ) : null}
         {log.maintenance_status === "In Progress" ? (
-          <button
-            className="rounded-lg border border-app-success/30 bg-app-success/10 px-2.5 py-1 text-xs font-semibold text-app-success transition hover:bg-app-success/20 disabled:opacity-50"
-            type="button"
-            disabled={updatingId === log.id}
-            onClick={() => handleStatusUpdate(log.id, "Resolved")}
-          >
-            {updatingId === log.id ? "..." : "Resolve"}
-          </button>
+          <>
+            <button
+              className="rounded-lg border border-app-success/30 bg-app-success/10 px-2.5 py-1 text-xs font-semibold text-app-success transition hover:bg-app-success/20 disabled:opacity-50"
+              type="button"
+              disabled={updatingId === log.id}
+              onClick={() => handleStatusUpdate(log.id, "Resolved")}
+            >
+              {updatingId === log.id ? "..." : "Resolve"}
+            </button>
+            <button
+              className="rounded-lg border border-app-danger/30 bg-app-danger/10 px-2.5 py-1 text-xs font-semibold text-app-danger transition hover:bg-app-danger/20 disabled:opacity-50"
+              type="button"
+              disabled={updatingId === log.id}
+              onClick={() => handleStatusUpdate(log.id, "Escalated")}
+            >
+              {updatingId === log.id ? "..." : "Can't Fix"}
+            </button>
+          </>
         ) : null}
       </div>
     ),
@@ -194,7 +204,7 @@ export default function DashboardPage() {
           <p className="text-xs uppercase tracking-[0.2em] text-black/40">Assigned to me</p>
           <h3 className="text-lg font-semibold text-app-text">My Active Jobs</h3>
           <p className="mt-1 text-sm text-black/50">
-            Jobs the admin assigned to you. Use Work Orders to add notes or view resolved jobs.
+            Jobs the admin assigned to you. Mark resolved when fixed, or use <strong>Can&apos;t Fix</strong> to escalate to the admin.
           </p>
         </div>
         {isLoading ? (

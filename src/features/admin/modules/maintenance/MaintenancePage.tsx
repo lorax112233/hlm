@@ -37,6 +37,7 @@ const columns = [
   { key: "issue", label: "Issue" },
   { key: "technician", label: "Technician" },
   { key: "status", label: "Status" },
+  { key: "action_taken", label: "Action Taken" },
   { key: "actions", label: "Actions" },
 ];
 
@@ -108,6 +109,17 @@ export default function MaintenancePage() {
     return () => { isMounted = false; };
   }, []);
 
+  useEffect(() => {
+    const channel = supabase
+      .channel("maintenance-admin-sync")
+      .on("postgres_changes", { event: "*", schema: "public", table: "maintenance_logs" }, () => {
+        void loadLogs();
+      })
+      .subscribe();
+    return () => { void supabase.removeChannel(channel); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const handleChange = (key: keyof typeof formValues, value: string) => {
     setFormValues((prev) => ({ ...prev, [key]: value }));
   };
@@ -153,7 +165,7 @@ export default function MaintenancePage() {
         .from("maintenance_logs")
         .select("id", { count: "exact", head: true })
         .eq("hardware_id", payload.hardware_id)
-        .in("maintenance_status", ["Open", "In Progress"]);
+        .in("maintenance_status", ["Open", "In Progress", "Escalated"]);
       if ((count ?? 0) === 0) {
         await supabase.from("hardware_assets").update({ lifecycle_status: "Active" }).eq("id", payload.hardware_id);
       }
@@ -189,7 +201,7 @@ export default function MaintenancePage() {
         .from("maintenance_logs")
         .select("id", { count: "exact", head: true })
         .eq("hardware_id", logToDelete.hardware_id)
-        .in("maintenance_status", ["Open", "In Progress"]);
+        .in("maintenance_status", ["Open", "In Progress", "Escalated"]);
       if ((count ?? 0) === 0) {
         await supabase.from("hardware_assets").update({ lifecycle_status: "Active" }).eq("id", logToDelete.hardware_id);
       }
@@ -329,6 +341,13 @@ export default function MaintenancePage() {
     issue: log.issue_description,
     technician: profileLookup.get(log.technician_id ?? "") ?? "-",
     status: <StatusBadge status={log.maintenance_status} />,
+    action_taken: log.action_taken ? (
+      <span className="block max-w-[180px] truncate text-xs text-black/60" title={log.action_taken}>
+        {log.action_taken}
+      </span>
+    ) : (
+      <span className="text-xs italic text-black/30">—</span>
+    ),
     actions: (
       <div className="flex items-center gap-3">
         <button className="text-xs font-semibold text-app-primary" type="button" onClick={() => handleEdit(log)}>
@@ -395,6 +414,7 @@ export default function MaintenancePage() {
             <option value="All">All statuses</option>
             <option value="Open">Open</option>
             <option value="In Progress">In Progress</option>
+            <option value="Escalated">Escalated</option>
             <option value="Resolved">Resolved</option>
           </select>
           <button
@@ -414,6 +434,16 @@ export default function MaintenancePage() {
         ) : null}
         {errorMessage ? (
           <p className="rounded-lg bg-app-danger/10 px-3 py-2 text-xs text-app-danger">{errorMessage}</p>
+        ) : null}
+        {logs.filter((l) => l.maintenance_status === "Escalated").length > 0 ? (
+          <div className="rounded-xl border border-app-danger/30 bg-app-danger/8 px-4 py-3">
+            <p className="text-xs font-semibold text-app-danger">
+              {logs.filter((l) => l.maintenance_status === "Escalated").length} escalated job{logs.filter((l) => l.maintenance_status === "Escalated").length > 1 ? "s" : ""} need your attention
+            </p>
+            <p className="mt-0.5 text-xs text-app-danger/70">
+              The assigned technician could not resolve these units. Reassign to another technician by editing the job and setting the status back to Open, or update the hardware lifecycle status if the unit needs to be retired.
+            </p>
+          </div>
         ) : null}
         <form
           className="grid gap-4 rounded-2xl border border-black/5 bg-white p-6 shadow-sm md:grid-cols-2"
@@ -482,6 +512,7 @@ export default function MaintenancePage() {
             >
               <option value="Open">Open</option>
               <option value="In Progress">In Progress</option>
+              <option value="Escalated">Escalated</option>
               <option value="Resolved">Resolved</option>
             </select>
           </div>

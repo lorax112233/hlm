@@ -90,6 +90,17 @@ export default function HardwarePage() {
     };
   }, []);
 
+  useEffect(() => {
+    const channel = supabase
+      .channel("hardware-admin-sync")
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "hardware_assets" }, () => {
+        void loadAssets();
+      })
+      .subscribe();
+    return () => { void supabase.removeChannel(channel); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const recordLifecycleChange = async (
     assetId: string,
     oldStatus: string | null,

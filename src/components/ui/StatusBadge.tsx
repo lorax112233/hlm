@@ -16,6 +16,7 @@ const statusMap: Record<string, Config> = {
   Open:                { bg: "bg-app-danger/10",   text: "text-app-danger",   border: "border-app-danger/25",   dot: "bg-app-danger"   },
   "In Progress":       { bg: "bg-app-warning/10",  text: "text-app-warning",  border: "border-app-warning/25",  dot: "bg-app-warning"  },
   Resolved:            { bg: "bg-app-success/10",  text: "text-app-success",  border: "border-app-success/25",  dot: "bg-app-success"  },
+  Escalated:           { bg: "bg-app-danger/15",   text: "text-app-danger",   border: "border-app-danger/40",   dot: "bg-app-danger"   },
   // Warranty statuses
   OK:                  { bg: "bg-app-success/10",  text: "text-app-success",  border: "border-app-success/25",  dot: "bg-app-success"  },
   "Expiring Soon":     { bg: "bg-app-warning/10",  text: "text-app-warning",  border: "border-app-warning/25",  dot: "bg-app-warning"  },
