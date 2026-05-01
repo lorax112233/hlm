@@ -161,12 +161,17 @@ export default function MaintenancePage() {
     }
 
     if (payload.maintenance_status !== "Resolved") {
-      // Only flip to Under Maintenance if the asset hasn't been intentionally retired or disposed.
-      await supabase
+      const { data: asset } = await supabase
         .from("hardware_assets")
-        .update({ lifecycle_status: "Under Maintenance" })
+        .select("lifecycle_status")
         .eq("id", payload.hardware_id)
-        .not("lifecycle_status", "in", "(Retired,Disposed)");
+        .single();
+      if (asset && asset.lifecycle_status !== "Retired" && asset.lifecycle_status !== "Disposed") {
+        await supabase
+          .from("hardware_assets")
+          .update({ lifecycle_status: "Under Maintenance" })
+          .eq("id", payload.hardware_id);
+      }
     } else {
       const { count } = await supabase
         .from("maintenance_logs")

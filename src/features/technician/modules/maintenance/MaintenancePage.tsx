@@ -157,11 +157,17 @@ export default function MaintenancePage() {
           .eq("lifecycle_status", "Under Maintenance");
       }
     } else {
-      await supabase
+      const { data: asset } = await supabase
         .from("hardware_assets")
-        .update({ lifecycle_status: "Under Maintenance" })
+        .select("lifecycle_status")
         .eq("id", log.hardware_id)
-        .not("lifecycle_status", "in", "(Retired,Disposed)");
+        .single();
+      if (asset && asset.lifecycle_status !== "Retired" && asset.lifecycle_status !== "Disposed") {
+        await supabase
+          .from("hardware_assets")
+          .update({ lifecycle_status: "Under Maintenance" })
+          .eq("id", log.hardware_id);
+      }
     }
 
     await loadMyLogs(currentUserId);
