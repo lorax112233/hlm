@@ -58,9 +58,8 @@ export default function DashboardPage() {
       soon.setDate(soon.getDate() + 30);
       const soonDate = soon.toISOString().split("T")[0];
 
-      const [logsResult, hardwareResult, underMaintenanceResult, expiringResult, userResult] =
+      const [hardwareResult, underMaintenanceResult, expiringResult, userResult] =
         await Promise.all([
-          supabase.auth.getUser(), // placeholder — logs fetched after we have userId
           supabase.from("hardware_assets").select("id, asset_id, device_name"),
           supabase.from("hardware_assets").select("id", { count: "exact", head: true }).eq("lifecycle_status", "Under Maintenance"),
           supabase.from("hardware_assets").select("id", { count: "exact", head: true }).gt("warranty_expiry", today).lte("warranty_expiry", soonDate),

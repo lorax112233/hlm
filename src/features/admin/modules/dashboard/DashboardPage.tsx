@@ -23,6 +23,12 @@ const columns = [
   { key: "actions", label: "Actions" },
 ];
 
+const formatDate = (value: string | null) => {
+  if (!value) return "-";
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? value : d.toLocaleDateString();
+};
+
 export default function DashboardPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [totalAssets, setTotalAssets] = useState(0);
@@ -124,7 +130,7 @@ export default function DashboardPage() {
     asset: asset.asset_id,
     type: asset.device_type,
     status: <StatusBadge status={asset.lifecycle_status} />,
-    warranty: asset.warranty_expiry ?? "-",
+    warranty: formatDate(asset.warranty_expiry),
     actions: (
       <Link
         className="text-xs font-semibold text-app-primary"
@@ -213,6 +219,4 @@ export default function DashboardPage() {
     </div>
   );
 }
-
-
 

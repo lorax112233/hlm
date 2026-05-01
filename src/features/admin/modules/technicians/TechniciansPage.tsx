@@ -25,6 +25,10 @@ const columns = [
 export default function TechniciansPage() {
   const [technicians, setTechnicians] = useState<TechnicianProfile[]>([]);
   const [activeLogs, setActiveLogs] = useState<ActiveLog[]>([]);
+  const [inviteValues, setInviteValues] = useState({ fullName: "", email: "", password: "" });
+  const [isInviting, setIsInviting] = useState(false);
+  const [inviteError, setInviteError] = useState<string | null>(null);
+  const [inviteSuccess, setInviteSuccess] = useState<string | null>(null);
 
   const loadData = async () => {
     const [techResult, logsResult] = await Promise.all([
@@ -46,6 +50,42 @@ export default function TechniciansPage() {
     });
     return counts;
   }, [activeLogs]);
+
+  const handleInvite = async (event: { preventDefault(): void }) => {
+    event.preventDefault();
+    setIsInviting(true);
+    setInviteError(null);
+    setInviteSuccess(null);
+
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      setInviteError("Not authenticated.");
+      setIsInviting(false);
+      return;
+    }
+
+    const res = await fetch("/api/admin/invite-technician", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify(inviteValues),
+    });
+
+    const json = await res.json() as { error?: string; id?: string };
+
+    if (!res.ok) {
+      setInviteError(json.error ?? "Failed to create account.");
+      setIsInviting(false);
+      return;
+    }
+
+    setInviteSuccess(`${inviteValues.fullName} has been added as a technician.`);
+    setInviteValues({ fullName: "", email: "", password: "" });
+    setIsInviting(false);
+    await loadData();
+  };
 
   const rows = technicians.map((tech) => {
     const openJobs = jobCountById[tech.id] ?? 0;
@@ -96,7 +136,7 @@ export default function TechniciansPage() {
             <div className="space-y-2 rounded-2xl border border-dashed border-app-warning/30 bg-app-warning/5 p-6">
               <p className="text-sm font-semibold text-app-warning">No technicians registered yet.</p>
               <p className="text-sm text-black/55">
-                Create a technician account in the Supabase Auth dashboard — they will appear here automatically.
+                Use the form on the right to add your first technician.
               </p>
             </div>
           ) : (
@@ -106,30 +146,61 @@ export default function TechniciansPage() {
 
         <aside className="space-y-4 rounded-3xl border border-black/5 bg-white/80 p-5 shadow-sm shadow-black/5 xl:sticky xl:top-6 xl:self-start">
           <div>
-            <p className="text-xs uppercase tracking-[0.2em] text-black/40">Setup</p>
-            <h3 className="text-lg font-semibold text-app-text">How to Add a Technician</h3>
-          </div>
-          <div className="space-y-2 rounded-xl border border-black/8 bg-black/[0.02] p-4">
-            <p className="text-xs font-semibold text-black/55">Steps in Supabase Auth dashboard</p>
-            <ol className="list-decimal list-inside space-y-1.5 text-xs text-black/45">
-              <li>Go to <strong>Authentication → Users</strong> and click <strong>Add user</strong></li>
-              <li>
-                In <code className="rounded bg-black/5 px-1 font-mono">app_metadata</code>, set{" "}
-                <code className="rounded bg-black/5 px-1 font-mono">{`{"role":"technician"}`}</code>
-              </li>
-              <li>
-                In <code className="rounded bg-black/5 px-1 font-mono">user_metadata</code>, set{" "}
-                <code className="rounded bg-black/5 px-1 font-mono">{`{"full_name":"Their Name"}`}</code>
-              </li>
-              <li>The technician appears here automatically — no further registration needed</li>
-            </ol>
-          </div>
-          <div className="space-y-1 rounded-xl border border-black/8 bg-black/[0.02] p-4">
-            <p className="text-xs font-semibold text-black/55">To remove a technician</p>
-            <p className="text-xs text-black/40">
-              Delete their account in the Supabase Auth dashboard. They will be removed from this list automatically.
+            <p className="text-xs uppercase tracking-[0.2em] text-black/40">Invite</p>
+            <h3 className="text-lg font-semibold text-app-text">Add Technician</h3>
+            <p className="mt-1 text-sm text-black/50">
+              Create a new technician account. They can log in immediately with their email and password.
             </p>
           </div>
+          <form className="space-y-3" onSubmit={handleInvite}>
+            <div className="grid gap-2">
+              <label className="text-xs uppercase tracking-[0.2em] text-black/40">Full Name</label>
+              <input
+                className="rounded-lg border border-black/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-app-primary/15"
+                type="text"
+                placeholder="e.g. John Smith"
+                value={inviteValues.fullName}
+                onChange={(e) => setInviteValues((prev) => ({ ...prev, fullName: e.target.value }))}
+                required
+              />
+            </div>
+            <div className="grid gap-2">
+              <label className="text-xs uppercase tracking-[0.2em] text-black/40">Email</label>
+              <input
+                className="rounded-lg border border-black/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-app-primary/15"
+                type="email"
+                placeholder="technician@company.com"
+                value={inviteValues.email}
+                onChange={(e) => setInviteValues((prev) => ({ ...prev, email: e.target.value }))}
+                required
+              />
+            </div>
+            <div className="grid gap-2">
+              <label className="text-xs uppercase tracking-[0.2em] text-black/40">Temporary Password</label>
+              <input
+                className="rounded-lg border border-black/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-app-primary/15"
+                type="password"
+                placeholder="Min. 6 characters"
+                value={inviteValues.password}
+                onChange={(e) => setInviteValues((prev) => ({ ...prev, password: e.target.value }))}
+                minLength={6}
+                required
+              />
+            </div>
+            {inviteError ? (
+              <p className="rounded-lg bg-app-danger/10 px-3 py-2 text-xs text-app-danger">{inviteError}</p>
+            ) : null}
+            {inviteSuccess ? (
+              <p className="rounded-lg bg-app-success/10 px-3 py-2 text-xs text-app-success">{inviteSuccess}</p>
+            ) : null}
+            <button
+              className="w-full rounded-lg bg-app-primary px-4 py-2 text-sm font-semibold text-white transition hover:bg-app-primary/90 disabled:opacity-70"
+              type="submit"
+              disabled={isInviting}
+            >
+              {isInviting ? "Creating Account..." : "Create Technician Account"}
+            </button>
+          </form>
         </aside>
       </div>
     </div>

@@ -16,7 +16,6 @@ type HardwareAsset = {
   serial_number: string | null;
   purchase_date: string | null;
   warranty_expiry: string | null;
-  assigned_to: string | null;
 };
 
 type MaintenanceLog = {
@@ -24,8 +23,9 @@ type MaintenanceLog = {
   maintenance_date: string;
   issue_description: string;
   action_taken: string | null;
-  technician_name: string | null;
+  technician_id: string | null;
   maintenance_status: string;
+  profiles: { full_name: string }[] | null;
 };
 
 type LifecycleHistory = {
@@ -93,14 +93,14 @@ export default function HardwareDetailPage() {
         supabase
           .from("hardware_assets")
           .select(
-            "id, asset_id, device_name, device_type, lifecycle_status, serial_number, purchase_date, warranty_expiry, assigned_to",
+            "id, asset_id, device_name, device_type, lifecycle_status, serial_number, purchase_date, warranty_expiry",
           )
           .eq("id", assetId)
           .single(),
         supabase
           .from("maintenance_logs")
           .select(
-            "id, maintenance_date, issue_description, action_taken, technician_name, maintenance_status",
+            "id, maintenance_date, issue_description, action_taken, technician_id, maintenance_status, profiles(full_name)",
           )
           .eq("hardware_id", assetId)
           .order("maintenance_date", { ascending: false }),
@@ -152,7 +152,7 @@ export default function HardwareDetailPage() {
       maintenanceLogs.map((log) => ({
         date: formatDate(log.maintenance_date),
         issue: log.issue_description,
-        technician: log.technician_name ?? "-",
+        technician: log.profiles?.[0]?.full_name ?? "-",
         status: <StatusBadge status={log.maintenance_status} />,
         action: log.action_taken ?? "-",
       })),
@@ -221,12 +221,6 @@ export default function HardwareDetailPage() {
       </section>
 
       <section className="grid gap-4 rounded-2xl border border-black/5 bg-white p-6 shadow-sm md:grid-cols-2">
-        <div>
-          <p className="text-xs uppercase tracking-[0.2em] text-black/40">Assigned To</p>
-          <p className="mt-1 text-sm text-app-text">
-            {asset.assigned_to ?? "-"}
-          </p>
-        </div>
         <div>
           <p className="text-xs uppercase tracking-[0.2em] text-black/40">Serial Number</p>
           <p className="mt-1 text-sm text-app-text">

@@ -56,7 +56,6 @@ export default function MaintenancePage() {
     hardware_id: "",
     maintenance_date: "",
     issue_description: "",
-    action_taken: "",
     technician_id: "",
     maintenance_status: "Open",
   });
@@ -118,7 +117,6 @@ export default function MaintenancePage() {
       hardware_id: "",
       maintenance_date: "",
       issue_description: "",
-      action_taken: "",
       technician_id: "",
       maintenance_status: "Open",
     });
@@ -134,7 +132,6 @@ export default function MaintenancePage() {
       hardware_id: formValues.hardware_id,
       maintenance_date: formValues.maintenance_date,
       issue_description: formValues.issue_description,
-      action_taken: formValues.action_taken || null,
       technician_id: formValues.technician_id || null,
       maintenance_status: formValues.maintenance_status,
     };
@@ -173,7 +170,6 @@ export default function MaintenancePage() {
       hardware_id: log.hardware_id,
       maintenance_date: log.maintenance_date,
       issue_description: log.issue_description,
-      action_taken: log.action_taken ?? "",
       technician_id: log.technician_id ?? "",
       maintenance_status: log.maintenance_status,
     });
@@ -457,15 +453,6 @@ export default function MaintenancePage() {
               value={formValues.issue_description}
               onChange={(e) => handleChange("issue_description", e.target.value)}
               required
-            />
-          </div>
-          <div className="grid gap-2">
-            <label className="text-xs uppercase tracking-[0.2em] text-black/40">Action Taken</label>
-            <input
-              className="rounded-lg border border-black/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-app-primary/15"
-              type="text"
-              value={formValues.action_taken}
-              onChange={(e) => handleChange("action_taken", e.target.value)}
             />
           </div>
           <div className="grid gap-2">
