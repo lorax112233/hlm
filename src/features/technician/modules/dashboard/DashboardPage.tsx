@@ -108,14 +108,13 @@ export default function DashboardPage() {
     if (!log) return;
 
     if (newStatus === "Resolved" || newStatus === "Escalated") {
-      // Re-fetch action_taken fresh from DB — technician may have added notes in
-      // Work Orders after this page loaded, and local cache wouldn't reflect that.
       const { data: fresh } = await supabase
         .from("maintenance_logs")
         .select("action_taken")
         .eq("id", logId)
         .single();
-      if (!fresh?.action_taken?.trim()) {
+      const actionTaken = fresh?.action_taken ?? log.action_taken;
+      if (!actionTaken?.trim()) {
         setErrorMessage(
           newStatus === "Resolved"
             ? "Open this job in Work Orders and document what you did before marking it resolved."

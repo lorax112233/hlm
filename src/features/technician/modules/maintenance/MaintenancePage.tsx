@@ -121,14 +121,22 @@ export default function MaintenancePage() {
     const log = logs.find((l) => l.id === logId);
     if (!log) return;
 
-    if ((newStatus === "Resolved" || newStatus === "Escalated") && !log.action_taken?.trim()) {
-      setErrorMessage(
-        newStatus === "Resolved"
-          ? "Document what you did under Action Taken before marking this job resolved."
-          : "Document what you tried under Action Taken before escalating to the admin.",
-      );
-      handleOpenNote(log);
-      return;
+    if (newStatus === "Resolved" || newStatus === "Escalated") {
+      const { data: fresh } = await supabase
+        .from("maintenance_logs")
+        .select("action_taken")
+        .eq("id", logId)
+        .single();
+      const actionTaken = fresh?.action_taken ?? log.action_taken;
+      if (!actionTaken?.trim()) {
+        setErrorMessage(
+          newStatus === "Resolved"
+            ? "Document what you did under Action Taken before marking this job resolved."
+            : "Document what you tried under Action Taken before escalating to the admin.",
+        );
+        handleOpenNote(log);
+        return;
+      }
     }
 
     setErrorMessage(null);
