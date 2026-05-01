@@ -126,8 +126,23 @@ export default function DashboardPage() {
 
     setErrorMessage(null);
     setUpdatingId(logId);
-    await supabase.from("maintenance_logs").update({ maintenance_status: newStatus }).eq("id", logId);
 
+    const { error: statusError } = await supabase
+      .from("maintenance_logs")
+      .update({ maintenance_status: newStatus })
+      .eq("id", logId);
+
+    if (statusError) {
+      setErrorMessage(statusError.message);
+      setUpdatingId(null);
+      return;
+    }
+
+    // Reload immediately so the UI reflects the status change.
+    await loadActiveLogs(currentUserId);
+    setUpdatingId(null);
+
+    // Sync hardware lifecycle in the background — don't block the UI.
     if (newStatus === "Resolved") {
       const { count } = await supabase
         .from("maintenance_logs")
@@ -154,9 +169,6 @@ export default function DashboardPage() {
           .eq("id", log.hardware_id);
       }
     }
-
-    await loadActiveLogs(currentUserId);
-    setUpdatingId(null);
   };
 
   const myJobRows = allLogs.map((log) => ({
