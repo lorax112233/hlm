@@ -25,7 +25,6 @@ type MaintenanceLog = {
   action_taken: string | null;
   technician_id: string | null;
   maintenance_status: string;
-  profiles: { full_name: string }[] | null;
 };
 
 type LifecycleHistory = {
@@ -74,6 +73,7 @@ export default function HardwareDetailPage() {
   const [asset, setAsset] = useState<HardwareAsset | null>(null);
   const [maintenanceLogs, setMaintenanceLogs] = useState<MaintenanceLog[]>([]);
   const [history, setHistory] = useState<LifecycleHistory[]>([]);
+  const [profileMap, setProfileMap] = useState<Map<string, string>>(new Map());
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -100,7 +100,7 @@ export default function HardwareDetailPage() {
         supabase
           .from("maintenance_logs")
           .select(
-            "id, maintenance_date, issue_description, action_taken, technician_id, maintenance_status, profiles(full_name)",
+            "id, maintenance_date, issue_description, action_taken, technician_id, maintenance_status",
           )
           .eq("hardware_id", assetId)
           .order("maintenance_date", { ascending: false }),
@@ -134,8 +134,21 @@ export default function HardwareDetailPage() {
         return;
       }
 
-      setMaintenanceLogs(maintenanceResult.data ?? []);
+      const logs = maintenanceResult.data ?? [];
+      setMaintenanceLogs(logs);
       setHistory(historyResult.data ?? []);
+
+      const technicianIds = [...new Set(logs.map((l) => l.technician_id).filter(Boolean))] as string[];
+      if (technicianIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from("profiles")
+          .select("id, full_name")
+          .in("id", technicianIds);
+        if (profiles) {
+          setProfileMap(new Map(profiles.map((p) => [p.id, p.full_name])));
+        }
+      }
+
       setIsLoading(false);
     };
 
@@ -147,16 +160,15 @@ export default function HardwareDetailPage() {
   }, [assetId]);
 
   const maintenanceRows = useMemo(
-    // Normalize table row shape for DataTable component.
     () =>
       maintenanceLogs.map((log) => ({
         date: formatDate(log.maintenance_date),
         issue: log.issue_description,
-        technician: log.profiles?.[0]?.full_name ?? "-",
+        technician: (log.technician_id ? profileMap.get(log.technician_id) : null) ?? "-",
         status: <StatusBadge status={log.maintenance_status} />,
         action: log.action_taken ?? "-",
       })),
-    [maintenanceLogs],
+    [maintenanceLogs, profileMap],
   );
 
   const historyRows = useMemo(
