@@ -41,6 +41,16 @@ export default function TechniciansPage() {
 
   useEffect(() => { void loadData(); }, []);
 
+  useEffect(() => {
+    const channel = supabase
+      .channel("technicians-page-sync")
+      .on("postgres_changes", { event: "*", schema: "public", table: "maintenance_logs" }, () => {
+        void loadData();
+      })
+      .subscribe();
+    return () => { void supabase.removeChannel(channel); };
+  }, []);
+
   const jobCountById = useMemo(() => {
     const counts: Record<string, number> = {};
     activeLogs.forEach((log) => {

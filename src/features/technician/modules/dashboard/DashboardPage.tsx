@@ -138,37 +138,8 @@ export default function DashboardPage() {
       return;
     }
 
-    // Reload immediately so the UI reflects the status change.
     await loadActiveLogs(currentUserId);
     setUpdatingId(null);
-
-    // Sync hardware lifecycle in the background — don't block the UI.
-    if (newStatus === "Resolved") {
-      const { count } = await supabase
-        .from("maintenance_logs")
-        .select("id", { count: "exact", head: true })
-        .eq("hardware_id", log.hardware_id)
-        .in("maintenance_status", ["Open", "In Progress", "Escalated"]);
-      if ((count ?? 0) === 0) {
-        await supabase
-          .from("hardware_assets")
-          .update({ lifecycle_status: "Active" })
-          .eq("id", log.hardware_id)
-          .eq("lifecycle_status", "Under Maintenance");
-      }
-    } else {
-      const { data: asset } = await supabase
-        .from("hardware_assets")
-        .select("lifecycle_status")
-        .eq("id", log.hardware_id)
-        .single();
-      if (asset && asset.lifecycle_status !== "Retired" && asset.lifecycle_status !== "Disposed") {
-        await supabase
-          .from("hardware_assets")
-          .update({ lifecycle_status: "Under Maintenance" })
-          .eq("id", log.hardware_id);
-      }
-    }
   };
 
   const myJobRows = allLogs.map((log) => ({

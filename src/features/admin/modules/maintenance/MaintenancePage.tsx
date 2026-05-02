@@ -27,11 +27,6 @@ type TechnicianProfile = {
   full_name: string;
 };
 
-type ActiveLog = {
-  technician_id: string | null;
-  maintenance_status: string;
-};
-
 const columns = [
   { key: "asset", label: "Asset" },
   { key: "issue", label: "Issue" },
@@ -44,7 +39,6 @@ const columns = [
 export default function MaintenancePage() {
   const [hardwareOptions, setHardwareOptions] = useState<HardwareOption[]>([]);
   const [technicianOptions, setTechnicianOptions] = useState<TechnicianProfile[]>([]);
-  const [activeLogCounts, setActiveLogCounts] = useState<Record<string, number>>({});
   const [logs, setLogs] = useState<MaintenanceLog[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -77,11 +71,10 @@ export default function MaintenancePage() {
     let isMounted = true;
 
     const loadInitialData = async () => {
-      const [hardwareResult, logsResult, techResult, activeLogsResult] = await Promise.all([
+      const [hardwareResult, logsResult, techResult] = await Promise.all([
         supabase.from("hardware_assets").select("id, asset_id, device_name").order("asset_id"),
         fetchLogs(),
         supabase.from("profiles").select("id, full_name").eq("role", "technician").order("full_name"),
-        supabase.from("maintenance_logs").select("technician_id, maintenance_status").in("maintenance_status", ["Open", "In Progress"]),
       ]);
 
       if (!isMounted) return;
@@ -93,16 +86,6 @@ export default function MaintenancePage() {
       else setLogs(logsResult.data ?? []);
 
       if (techResult.data) setTechnicianOptions(techResult.data);
-
-      if (activeLogsResult.data) {
-        const counts: Record<string, number> = {};
-        (activeLogsResult.data as ActiveLog[]).forEach((log) => {
-          if (log.technician_id) {
-            counts[log.technician_id] = (counts[log.technician_id] ?? 0) + 1;
-          }
-        });
-        setActiveLogCounts(counts);
-      }
     };
 
     void loadInitialData();
@@ -160,34 +143,6 @@ export default function MaintenancePage() {
       return;
     }
 
-    if (payload.maintenance_status !== "Resolved") {
-      const { data: asset } = await supabase
-        .from("hardware_assets")
-        .select("lifecycle_status")
-        .eq("id", payload.hardware_id)
-        .single();
-      if (asset && asset.lifecycle_status !== "Retired" && asset.lifecycle_status !== "Disposed") {
-        await supabase
-          .from("hardware_assets")
-          .update({ lifecycle_status: "Under Maintenance" })
-          .eq("id", payload.hardware_id);
-      }
-    } else {
-      const { count } = await supabase
-        .from("maintenance_logs")
-        .select("id", { count: "exact", head: true })
-        .eq("hardware_id", payload.hardware_id)
-        .in("maintenance_status", ["Open", "In Progress", "Escalated"]);
-      if ((count ?? 0) === 0) {
-        // Only restore to Active if the asset was Under Maintenance — never override Retired/Disposed.
-        await supabase
-          .from("hardware_assets")
-          .update({ lifecycle_status: "Active" })
-          .eq("id", payload.hardware_id)
-          .eq("lifecycle_status", "Under Maintenance");
-      }
-    }
-
     resetForm();
     await loadLogs();
     setIsLoading(false);
@@ -206,27 +161,11 @@ export default function MaintenancePage() {
 
   const handleDelete = async (id: string) => {
     setErrorMessage(null);
-    const logToDelete = logs.find((l) => l.id === id);
     const { error } = await supabase.from("maintenance_logs").delete().eq("id", id);
 
     if (error) { setErrorMessage(error.message); return; }
 
     setLogs((prev) => prev.filter((log) => log.id !== id));
-
-    if (logToDelete) {
-      const { count } = await supabase
-        .from("maintenance_logs")
-        .select("id", { count: "exact", head: true })
-        .eq("hardware_id", logToDelete.hardware_id)
-        .in("maintenance_status", ["Open", "In Progress", "Escalated"]);
-      if ((count ?? 0) === 0) {
-        await supabase
-          .from("hardware_assets")
-          .update({ lifecycle_status: "Active" })
-          .eq("id", logToDelete.hardware_id)
-          .eq("lifecycle_status", "Under Maintenance");
-      }
-    }
   };
 
   const hardwareLookup = useMemo(
@@ -238,6 +177,16 @@ export default function MaintenancePage() {
     () => new Map(technicianOptions.map((p) => [p.id, p.full_name])),
     [technicianOptions],
   );
+
+  const activeLogCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    logs.forEach((log) => {
+      if (log.technician_id && (log.maintenance_status === "Open" || log.maintenance_status === "In Progress")) {
+        counts[log.technician_id] = (counts[log.technician_id] ?? 0) + 1;
+      }
+    });
+    return counts;
+  }, [logs]);
 
   const hardwareLabel = useCallback(
     (hardwareId: string) => hardwareLookup.get(hardwareId) ?? "Unknown",
